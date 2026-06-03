@@ -861,18 +861,48 @@ async function scrapeUrl() {
   const url = $("#scraper-url").value.trim();
   if (!url) { toast("URL을 입력하세요."); return; }
   const out = $("#scraper-output");
-  out.innerHTML = `<div class="card"><div class="empty"><span class="loading"></span> 가져오는 중…</div></div>`;
+  out.innerHTML = `<div class="card"><div class="empty"><span class="loading"></span> 가져오는 중… (Jina Reader)</div></div>`;
+  let text = "", title = "(제목 없음)", desc = "";
+  // 1) Try Jina Reader first - works for any URL, no CORS issues, returns clean markdown
   try {
-    const proxy = state.proxy || DEFAULT_PROXY;
-    const res = await fetch(proxy + encodeURIComponent(url));
-    const data = await res.json();
-    const html = data.contents || "";
-    if (!html) throw new Error("빈 응답");
-    const parsed = extractFromHtml(html);
-    renderScraperResult(parsed, url);
-  } catch (e) {
-    out.innerHTML = `<div class="card"><div class="empty">❌ 실패: ${escapeHtml(e.message)}<br><br>설정에서 CORS 프록시를 확인하세요.</div></div>`;
+    const res = await fetch(JINA_PREFIX + url, { headers: { "Accept": "text/plain" } });
+    if (!res.ok) throw new Error("Jina " + res.status);
+    const md = await res.text();
+    if (!md || md.length < 50) throw new Error("빈 응답");
+    const tm = md.match(/^Title:\s*(.+)$/m); if (tm) title = tm[1].trim();
+    const um = md.match(/^URL Source:\s*(.+)$/m);
+    const body = md.replace(/^Title:.*$/m, "").replace(/^URL Source:.*$/m, "").replace(/^Markdown Content:\s*/m, "").trim();
+    text = body.replace(/!\[[^\]]*\]\([^)]*\)/g, "").replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").replace(/[#*_`>]/g, " ").replace(/\s+/g, " ").trim();
+    desc = text.slice(0, 200);
+  } catch (e1) {
+    // 2) Fallback: allorigins
+    try {
+      out.innerHTML = `<div class="card"><div class="empty"><span class="loading"></span> Jina 실패, allorigins 시도 중…</div></div>`;
+      const proxy = state.proxy || DEFAULT_PROXY;
+      const res = await fetch(proxy + encodeURIComponent(url));
+      const data = await res.json();
+      const html = data.contents || "";
+      if (!html) throw new Error("빈 응답");
+      const parsed = extractFromHtml(html);
+      renderScraperResult(parsed, url);
+      return;
+    } catch (e2) {
+      out.innerHTML = `<div class="card"><div class="empty">❌ 실패: ${escapeHtml(e1.message)} / ${escapeHtml(e2.message)}<br><br>네트워크 또는 프록시 상태를 확인하세요.</div></div>`;
+      return;
+    }
   }
+  const parsed = extractFromText(text, title, desc);
+  renderScraperResult(parsed, url);
+}
+function extractFromText(text, title, desc) {
+  const sentences = text.match(/[^.!?]+[.!?]+/g)?.map(s => s.trim()).filter(s => s.split(" ").length >= 4 && s.length < 280) || [];
+  const stop = new Set("the a an of and or but in on at to for from with by is are was were be been being have has had do does did this that these those i you he she it we they me him her them my your his its our their as not so if then than when while because also more most some any all very can could should would will may might about into out up down over under".split(" "));
+  const freq = {};
+  text.toLowerCase().split(/[^a-z']+/).forEach(w => {
+    if (w.length >= 4 && !stop.has(w)) freq[w] = (freq[w] || 0) + 1;
+  });
+  const topWords = Object.entries(freq).sort((a,b) => b[1]-a[1]).slice(0, 30);
+  return { title, desc, sentences: sentences.slice(0, 30), topWords, fullLen: text.length };
 }
 function extractFromHtml(html) {
   const doc = new DOMParser().parseFromString(html, "text/html");
