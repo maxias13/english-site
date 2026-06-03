@@ -99,6 +99,10 @@
     box-shadow: 0 4px 14px rgba(99,102,241,0.4);
   }
   nav .icon { width: 20px; display: inline-block; text-align: center; font-size: 16px; }
+  .nav-section-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); padding: 16px 12px 6px; font-weight: 600; }
+  #nav-articles button { font-size: 13px; }
+  #nav-articles .article-del { float: right; opacity: 0.5; padding: 0 4px; }
+  #nav-articles .article-del:hover { opacity: 1; color: var(--accent-2); }
   .theme-toggle {
     margin-top: auto;
     background: var(--surface-2);
@@ -280,6 +284,8 @@
     <button data-page="vocab"><span class="icon">🗂️</span>내 단어장</button>
     <button data-page="settings"><span class="icon">⚙️</span>설정</button>
   </nav>
+  <div class="nav-section-title">📰 내 Article</div>
+  <nav id="nav-articles"></nav>
   <button class="theme-toggle" id="theme-toggle">🌗 테마 전환</button>
 </aside>
 
@@ -287,6 +293,16 @@
   <section id="page-dashboard" class="page active">
     <h1>대시보드</h1>
     <p class="subtitle">오늘도 한 걸음씩 — <span id="today-date"></span></p>
+
+    <div class="card" style="margin-bottom:18px;">
+      <h2>📰 새 Article 추가</h2>
+      <p style="color:var(--text-dim); font-size:13px; margin:4px 0 10px;">URL을 입력하면 좌측 사이드바에 Article 버튼이 생깁니다. 클릭 시 영어 원문 + 자연스러운 한글 번역이 좌우로 표시됩니다.</p>
+      <div class="scraper-input">
+        <input type="url" id="dash-article-url" placeholder="https://example.com/article  또는  https://engoo.com/app/daily-news/article/..." />
+        <button class="btn" id="btn-add-article">Article 추가</button>
+      </div>
+      <div id="dash-article-status" style="margin-top:10px; font-size:13px; color:var(--text-dim);"></div>
+    </div>
 
     <div class="grid grid-stats">
       <div class="card stat hover">
@@ -381,6 +397,12 @@
     </div>
   </section>
 
+  <section id="page-article" class="page">
+    <div id="article-output">
+      <div class="card"><div class="empty">사이드바에서 Article을 선택하세요.</div></div>
+    </div>
+  </section>
+
   <section id="page-settings" class="page">
     <h1>설정</h1>
     <p class="subtitle">로컬 데이터(LocalStorage) 관리</p>
@@ -434,7 +456,7 @@ const STORE_KEY = "english_lab_v1";
 const defaultState = {
   vocab: [], passagesRead: [], activity: {},
   proxy: DEFAULT_PROXY, sessionStart: null,
-  theme: "light", vocabHistory: {}
+  theme: "light", vocabHistory: {}, articles: []
 };
 function loadState() {
   try { const s = JSON.parse(localStorage.getItem(STORE_KEY) || "null"); return { ...defaultState, ...(s || {}) }; }
@@ -462,7 +484,8 @@ $("#theme-toggle").addEventListener("click", () => {
 
 $$("#nav button").forEach(b => b.addEventListener("click", () => {
   const page = b.dataset.page;
-  $$("#nav button").forEach(x => x.classList.toggle("active", x === b));
+  $$("nav button").forEach(x => x.classList.remove("active"));
+  b.classList.add("active");
   $$(".page").forEach(p => p.classList.toggle("active", p.id === `page-${page}`));
   if (page === "dashboard") renderDashboard();
   if (page === "vocab") renderVocab();
@@ -987,6 +1010,104 @@ $("#btn-reset").addEventListener("click", () => {
 $("#proxy-url").addEventListener("change", (e) => { state.proxy = e.target.value || DEFAULT_PROXY; saveState(); toast("프록시 저장됨"); });
 
 renderDashboard();
+
+function parseGenericMarkdown(md) {
+  let title = "", url = "";
+  const tm = md.match(/^Title:\s*(.+)$/m); if (tm) title = tm[1].trim();
+  const um = md.match(/^URL Source:\s*(.+)$/m); if (um) url = um[1].trim();
+  let body = md.replace(/^Title:.*$/m, "").replace(/^URL Source:.*$/m, "")
+               .replace(/^Markdown Content:\s*$/m, "").replace(/^Published Time:.*$/m, "")
+               .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+               .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+               .replace(/^#{1,6}\s+/gm, "").replace(/^\s*[-*]\s+/gm, "")
+               .replace(/\*\*([^*]+)\*\*/g, "$1").replace(/\*([^*]+)\*/g, "$1");
+  const paras = body.split(/\n\s*\n+/).map(p => p.replace(/\s+/g, " ").trim())
+                    .filter(p => p.length > 60 && /[a-zA-Z]/.test(p) && !/^(Source|Share|Subscribe|Copyright|©|Posted|Tags?:|Categor)/i.test(p));
+  return { title: title || "Untitled Article", paragraphs: paras.slice(0, 60) };
+}
+
+async function addArticleFromUrl(url) {
+  const status = $("#dash-article-status");
+  status.textContent = "📥 본문 다운로드 중…"; status.style.color = "var(--text-dim)";
+  try {
+    const md = await (await fetch(JINA_PREFIX + url, { headers: { "Accept": "text/plain" } })).text();
+    const parsed = parseGenericMarkdown(md);
+    if (!parsed.paragraphs.length) throw new Error("본문을 찾지 못했습니다.");
+    status.textContent = `🌐 ${parsed.paragraphs.length}개 단락 한글 번역 중…`;
+    const translations = [];
+    for (const p of parsed.paragraphs) { translations.push(await translateText(p)); }
+    const article = { id: "a_" + Date.now().toString(36), url, title: parsed.title,
+                      paragraphs: parsed.paragraphs, translations, savedAt: new Date().toISOString() };
+    state.articles.unshift(article); saveState(); renderArticleNav();
+    status.textContent = `✅ 추가 완료: ${parsed.title}`; status.style.color = "var(--accent)";
+    $("#dash-article-url").value = ""; openArticle(article.id);
+  } catch (e) {
+    status.textContent = "❌ 실패: " + e.message; status.style.color = "var(--accent-2)";
+  }
+}
+
+function renderArticleNav() {
+  const nav = $("#nav-articles");
+  if (!state.articles || !state.articles.length) { nav.innerHTML = `<div style="padding:8px 12px; font-size:12px; color:var(--text-dim);">없음</div>`; return; }
+  nav.innerHTML = state.articles.map(a => `
+    <button data-article="${a.id}" title="${escapeHtml(a.url)}">
+      <span class="icon">📄</span><span>${escapeHtml(a.title.length > 24 ? a.title.slice(0,24)+"…" : a.title)}</span>
+      <span class="article-del" data-del="${a.id}">✕</span>
+    </button>`).join("");
+  $$("#nav-articles button").forEach(b => b.addEventListener("click", (e) => {
+    if (e.target.dataset.del) { e.stopPropagation(); deleteArticle(e.target.dataset.del); return; }
+    openArticle(b.dataset.article);
+  }));
+}
+
+function deleteArticle(id) {
+  state.articles = state.articles.filter(a => a.id !== id); saveState(); renderArticleNav();
+  if ($("#page-article").classList.contains("active")) {
+    $$("#nav button").forEach(x => x.classList.toggle("active", x.dataset.page === "dashboard"));
+    $$(".page").forEach(p => p.classList.toggle("active", p.id === "page-dashboard"));
+    renderDashboard();
+  }
+}
+
+function openArticle(id) {
+  const a = state.articles.find(x => x.id === id); if (!a) return;
+  $$("nav button").forEach(x => x.classList.remove("active"));
+  $$("#nav-articles button").forEach(b => b.classList.toggle("active", b.dataset.article === id));
+  $$(".page").forEach(p => p.classList.toggle("active", p.id === "page-article"));
+  renderArticle(a);
+}
+
+function renderArticle(a) {
+  const out = $("#article-output");
+  const rows = a.paragraphs.map((p, i) => `
+    <div class="bilingual" style="margin-bottom: 14px;">
+      <div class="col"><p>${escapeHtml(p)}</p></div>
+      <div class="col"><p>${escapeHtml(a.translations[i] || "(번역 없음)")}</p></div>
+    </div>`).join("");
+  out.innerHTML = `
+    <div class="card">
+      <h2 style="margin:0 0 6px;">${escapeHtml(a.title)}</h2>
+      <p style="color:var(--text-dim); font-size:13px; margin:0 0 12px;">
+        <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener" style="color:var(--accent);">원문 열기 ↗</a>
+        · ${a.paragraphs.length} paragraphs · 저장: ${new Date(a.savedAt).toLocaleString()}
+      </p>
+      <div class="bilingual" style="margin-bottom: 10px;">
+        <div class="col"><h3>🇺🇸 English</h3></div>
+        <div class="col"><h3>🇰🇷 한국어</h3></div>
+      </div>
+      ${rows}
+    </div>`;
+  state.passagesRead = state.passagesRead || []; tickActivity();
+}
+
+$("#btn-add-article").addEventListener("click", () => {
+  const u = $("#dash-article-url").value.trim();
+  if (!/^https?:\/\//.test(u)) { toast("올바른 URL을 입력하세요"); return; }
+  addArticleFromUrl(u);
+});
+$("#dash-article-url").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#btn-add-article").click(); });
+
+renderArticleNav();
 </script>
 </body>
 </html>
