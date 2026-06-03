@@ -267,6 +267,25 @@
   .qa-item:last-child { border-bottom: none; }
   .qa-en { color: var(--text); }
   .qa-ko { color: var(--text-dim); margin-top: 4px; font-size: 13.5px; }
+
+  .cal-wrap { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 8px; }
+  @media (max-width: 1100px) { .cal-wrap { grid-template-columns: 1fr; } }
+  .cal-month { background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 14px; padding: 14px 14px 12px; }
+  .cal-current { border: 1px solid var(--accent); box-shadow: 0 0 0 3px rgba(99,102,241,0.15); background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(236,72,153,0.05)); }
+  .cal-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+  .cal-title { font-weight: 700; font-size: 15px; }
+  .cal-count { font-size: 12px; color: var(--text-dim); }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .cal-dow { margin-bottom: 4px; }
+  .cal-dn { text-align: center; font-size: 11px; font-weight: 600; color: var(--text-dim); padding: 4px 0; }
+  .cal-dn.sun { color: #ef4444; } .cal-dn.sat { color: #3b82f6; }
+  .cal-cell { aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; font-size: 12px; border-radius: 8px; color: var(--text-dim); position: relative; transition: transform 0.15s; }
+  .cal-cell.empty { background: transparent; }
+  .cal-cell:not(.empty):not(.present) { background: rgba(255,255,255,0.03); }
+  .cal-cell.present { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: white; font-weight: 700; box-shadow: 0 2px 8px rgba(99,102,241,0.4); }
+  .cal-cell.present::after { content: "✓"; position: absolute; top: 1px; right: 3px; font-size: 8px; opacity: 0.8; }
+  .cal-cell.today { outline: 2px solid var(--accent-3); outline-offset: 1px; }
+  .cal-cell:hover:not(.empty) { transform: scale(1.08); cursor: default; }
 </style>
 </head>
 <body>
@@ -341,6 +360,11 @@
     <div class="card">
       <h2>최근 7일 단어 추가</h2>
       <div id="chart-vocab"></div>
+    </div>
+
+    <div class="card" style="margin-top:18px;">
+      <h2>📅 출석 달력 <span style="color:var(--text-dim); font-size:13px; font-weight:400;">— URL 추가일이 출석으로 기록됩니다</span></h2>
+      <div id="attendance-calendar" class="cal-wrap"></div>
     </div>
   </section>
 
@@ -454,7 +478,7 @@ const TRANSLATE_API = "https://translate.googleapis.com/translate_a/single?clien
 
 const STORE_KEY = "english_lab_v1";
 const defaultState = {
-  vocab: [], passagesRead: [], activity: {},
+  vocab: [], passagesRead: [], activity: {}, attendance: {},
   proxy: DEFAULT_PROXY, sessionStart: null,
   theme: "light", vocabHistory: {}, articles: []
 };
@@ -624,6 +648,44 @@ function drawVocabChart() {
       </defs>
       ${bars}
     </svg>`;
+  renderAttendanceCalendar();
+}
+
+function renderAttendanceCalendar() {
+  const wrap = $("#attendance-calendar"); if (!wrap) return;
+  const att = state.attendance || {};
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todayK = today.toISOString().slice(0,10);
+  const months = [-1, 0, 1].map(off => {
+    const d = new Date(today.getFullYear(), today.getMonth() + off, 1); return d;
+  });
+  const dayNames = ["일","월","화","수","목","금","토"];
+  const html = months.map(m => {
+    const year = m.getFullYear(), month = m.getMonth();
+    const first = new Date(year, month, 1).getDay();
+    const last = new Date(year, month + 1, 0).getDate();
+    const isCurrent = month === today.getMonth() && year === today.getFullYear();
+    let cells = "";
+    for (let i = 0; i < first; i++) cells += `<div class="cal-cell empty"></div>`;
+    for (let d = 1; d <= last; d++) {
+      const k = `${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+      const present = !!att[k];
+      const isToday = k === todayK;
+      cells += `<div class="cal-cell${present ? " present" : ""}${isToday ? " today" : ""}" title="${k}${present ? " ✅ 출석" : ""}">${d}</div>`;
+    }
+    const monthName = `${year}년 ${month+1}월`;
+    const count = Object.keys(att).filter(k => k.startsWith(`${year}-${String(month+1).padStart(2,"0")}`)).length;
+    return `
+      <div class="cal-month${isCurrent ? " cal-current" : ""}">
+        <div class="cal-head">
+          <span class="cal-title">${monthName}</span>
+          <span class="cal-count">${count}일 출석</span>
+        </div>
+        <div class="cal-grid cal-dow">${dayNames.map((n,i)=>`<div class="cal-dn${i===0?' sun':''}${i===6?' sat':''}">${n}</div>`).join("")}</div>
+        <div class="cal-grid">${cells}</div>
+      </div>`;
+  }).join("");
+  wrap.innerHTML = html;
 }
 
 function renderReading() {
@@ -1039,6 +1101,7 @@ async function addArticleFromUrl(url) {
     const article = { id: "a_" + Date.now().toString(36), url, title: parsed.title,
                       paragraphs: parsed.paragraphs, translations, savedAt: new Date().toISOString() };
     state.articles.unshift(article); saveState(); renderArticleNav();
+    state.attendance = state.attendance || {}; state.attendance[todayKey()] = true; saveState();
     status.textContent = `✅ 추가 완료: ${parsed.title}`; status.style.color = "var(--accent)";
     $("#dash-article-url").value = ""; openArticle(article.id);
   } catch (e) {
