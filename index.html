@@ -290,18 +290,26 @@
 </head>
 <body>
 
+<div id="signup-overlay" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.6); backdrop-filter:blur(8px); z-index:9999; align-items:center; justify-content:center;">
+  <div style="background:var(--surface, #fff); border-radius:20px; padding:40px; max-width:420px; width:90%; box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+    <h2 style="margin:0 0 8px; background:linear-gradient(135deg,var(--accent),var(--accent-2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; font-size:24px;">환영합니다 👋</h2>
+    <p style="color:var(--text-dim); margin:0 0 24px; font-size:14px;">My English Lab을 시작하려면 가입해주세요.</p>
+    <label style="display:block; font-size:13px; color:var(--text-dim); margin-bottom:6px;">이름 (영문)</label>
+    <input id="signup-name" type="text" placeholder="e.g. John Doe" style="width:100%; padding:12px; border-radius:10px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); margin-bottom:14px; font-size:14px; box-sizing:border-box;">
+    <label style="display:block; font-size:13px; color:var(--text-dim); margin-bottom:6px;">이메일</label>
+    <input id="signup-email" type="email" placeholder="you@example.com" style="width:100%; padding:12px; border-radius:10px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); margin-bottom:18px; font-size:14px; box-sizing:border-box;">
+    <div id="signup-error" style="color:#ef4444; font-size:13px; margin-bottom:12px; min-height:18px;"></div>
+    <button id="signup-submit" style="width:100%; padding:14px; border:none; border-radius:10px; background:linear-gradient(135deg,var(--accent),var(--accent-2)); color:#fff; font-weight:600; font-size:15px; cursor:pointer;">가입하고 시작하기</button>
+  </div>
+</div>
+
 <aside>
   <div class="brand">
     My English Lab
-    <small>Personal study workspace</small>
+    <small id="brand-user">Personal study workspace</small>
   </div>
   <nav id="nav">
     <button data-page="dashboard" class="active"><span class="icon">📊</span>대시보드</button>
-    <button data-page="reading"><span class="icon">📖</span>독해 연습</button>
-    <button data-page="engoo"><span class="icon">🌐</span>Engoo 이중언어</button>
-    <button data-page="scraper"><span class="icon">🔗</span>URL 분석</button>
-    <button data-page="vocab"><span class="icon">🗂️</span>내 단어장</button>
-    <button data-page="settings"><span class="icon">⚙️</span>설정</button>
   </nav>
   <div class="nav-section-title">📰 내 Article</div>
   <nav id="nav-articles"></nav>
@@ -323,27 +331,9 @@
       <div id="dash-article-status" style="margin-top:10px; font-size:13px; color:var(--text-dim);"></div>
     </div>
 
-    <div class="grid grid-stats">
-      <div class="card stat hover">
-        <div class="label">현재 스트릭</div>
-        <div class="value"><span id="stat-streak">0</span>일</div>
-        <div class="delta">🔥 연속 학습</div>
-      </div>
-      <div class="card stat hover">
-        <div class="label">오늘 학습 시간</div>
-        <div class="value"><span id="stat-today-min">0</span>분</div>
-        <div class="delta" id="stat-today-delta">목표 30분</div>
-      </div>
-      <div class="card stat hover">
-        <div class="label">총 학습 단어</div>
-        <div class="value"><span id="stat-words">0</span>개</div>
-        <div class="delta">단어장 누적</div>
-      </div>
-      <div class="card stat hover">
-        <div class="label">읽은 지문</div>
-        <div class="value"><span id="stat-passages">0</span>개</div>
-        <div class="delta">누적</div>
-      </div>
+    <div class="card" style="margin-top:18px;">
+      <h2>📅 출석 달력 <span style="color:var(--text-dim); font-size:13px; font-weight:400;">— URL 추가일이 출석으로 기록됩니다</span></h2>
+      <div id="attendance-calendar" class="cal-wrap"></div>
     </div>
 
     <div class="grid grid-charts">
@@ -360,11 +350,6 @@
     <div class="card">
       <h2>최근 7일 단어 추가</h2>
       <div id="chart-vocab"></div>
-    </div>
-
-    <div class="card" style="margin-top:18px;">
-      <h2>📅 출석 달력 <span style="color:var(--text-dim); font-size:13px; font-weight:400;">— URL 추가일이 출석으로 기록됩니다</span></h2>
-      <div id="attendance-calendar" class="cal-wrap"></div>
     </div>
   </section>
 
@@ -480,7 +465,7 @@ const STORE_KEY = "english_lab_v1";
 const defaultState = {
   vocab: [], passagesRead: [], activity: {}, attendance: {},
   proxy: DEFAULT_PROXY, sessionStart: null,
-  theme: "light", vocabHistory: {}, articles: []
+  theme: "light", vocabHistory: {}, articles: [], user: null
 };
 function loadState() {
   try { const s = JSON.parse(localStorage.getItem(STORE_KEY) || "null"); return { ...defaultState, ...(s || {}) }; }
@@ -491,7 +476,8 @@ let state = loadState();
 
 const $ = (s, root = document) => root.querySelector(s);
 const $$ = (s, root = document) => Array.from(root.querySelectorAll(s));
-const todayKey = () => new Date().toISOString().slice(0, 10);
+const dateKey = (d = new Date()) => d.toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
+const todayKey = () => dateKey();
 const toast = (msg) => {
   const t = $("#toast"); t.textContent = msg; t.classList.add("show");
   clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 2400);
@@ -537,12 +523,6 @@ function calcStreak() {
 
 function renderDashboard() {
   $("#today-date").textContent = new Date().toLocaleDateString("ko-KR", { year:"numeric", month:"long", day:"numeric", weekday:"long" });
-  $("#stat-streak").textContent = calcStreak();
-  const todayMin = state.activity[todayKey()] || 0;
-  $("#stat-today-min").textContent = todayMin;
-  $("#stat-today-delta").textContent = todayMin >= 30 ? "✅ 목표 달성" : `목표까지 ${30 - todayMin}분`;
-  $("#stat-words").textContent = state.vocab.length;
-  $("#stat-passages").textContent = state.passagesRead.length;
   drawActivityChart();
   drawDonutChart();
   drawVocabChart();
@@ -553,7 +533,7 @@ function drawActivityChart() {
   const data = [];
   for (let i = days-1; i >= 0; i--) {
     const d = new Date(); d.setDate(d.getDate() - i);
-    const k = d.toISOString().slice(0,10);
+    const k = dateKey(d);
     data.push({ k, v: state.activity[k] || 0 });
   }
   const W = 760, H = 200, P = 30;
@@ -619,8 +599,8 @@ function drawVocabChart() {
   const buckets = [];
   for (let i = days-1; i >= 0; i--) {
     const d = new Date(); d.setDate(d.getDate() - i);
-    const k = d.toISOString().slice(0,10);
-    const c = state.vocab.filter(v => new Date(v.addedAt).toISOString().slice(0,10) === k).length;
+    const k = dateKey(d);
+    const c = state.vocab.filter(v => dateKey(new Date(v.addedAt)) === k).length;
     buckets.push({ k, c });
   }
   const W = 760, H = 160, P = 28;
@@ -655,7 +635,7 @@ function renderAttendanceCalendar() {
   const wrap = $("#attendance-calendar"); if (!wrap) return;
   const att = state.attendance || {};
   const today = new Date(); today.setHours(0,0,0,0);
-  const todayK = today.toISOString().slice(0,10);
+  const todayK = dateKey(today);
   const months = [-1, 0, 1].map(off => {
     const d = new Date(today.getFullYear(), today.getMonth() + off, 1); return d;
   });
@@ -1083,8 +1063,32 @@ function parseGenericMarkdown(md) {
                .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
                .replace(/^#{1,6}\s+/gm, "").replace(/^\s*[-*]\s+/gm, "")
                .replace(/\*\*([^*]+)\*\*/g, "$1").replace(/\*([^*]+)\*/g, "$1");
+  // Cut off at common Engoo/article post-body sections
+  const cutPatterns = [
+    /\n\s*Vocabulary\s*\n/i,
+    /\n\s*Article Quiz\s*\n/i,
+    /\n\s*Discussion\s*\n/i,
+    /\n\s*Further Discussion\s*\n/i,
+    /\n\s*Related Articles?\s*\n/i,
+    /Repeat each word, definition,? and example sentence/i
+  ];
+  for (const re of cutPatterns) {
+    const m = body.match(re);
+    if (m && m.index !== undefined) { body = body.slice(0, m.index); break; }
+  }
+  const skipRe = /^(Source|Share|Subscribe|Copyright|©|Posted|Tags?:|Categor|All\s*Business|Business\s*&\s*Politics|Science\s*&\s*Technology|Health\s*&\s*Lifestyle|Culture\s*&\s*Society|Travel\s*&\s*Experiences|Sign\s*up|Log\s*in|Daily\s*News)/i;
+  // Detect concatenated category navigation like "AllBusiness & PoliticsScience & Technology..."
+  const navRe = /[a-z][A-Z]/;
   const paras = body.split(/\n\s*\n+/).map(p => p.replace(/\s+/g, " ").trim())
-                    .filter(p => p.length > 60 && /[a-zA-Z]/.test(p) && !/^(Source|Share|Subscribe|Copyright|©|Posted|Tags?:|Categor)/i.test(p));
+                    .filter(p => {
+                      if (p.length <= 60) return false;
+                      if (!/[a-zA-Z]/.test(p)) return false;
+                      if (skipRe.test(p)) return false;
+                      // Filter concat-nav: many lowercase→Uppercase transitions in a single line of "Title-Case Words"
+                      const transitions = (p.match(/[a-z][A-Z]/g) || []).length;
+                      if (transitions >= 3 && p.split(" ").length < 20) return false;
+                      return true;
+                    });
   return { title: title || "Untitled Article", paragraphs: paras.slice(0, 60) };
 }
 
@@ -1171,6 +1175,29 @@ $("#btn-add-article").addEventListener("click", () => {
 $("#dash-article-url").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#btn-add-article").click(); });
 
 renderArticleNav();
+
+// Signup gating
+function applyUserUI() {
+  const overlay = document.getElementById("signup-overlay");
+  const small = document.getElementById("brand-user");
+  if (!state.user) {
+    overlay.style.display = "flex";
+  } else {
+    overlay.style.display = "none";
+    if (small) small.textContent = `👤 ${state.user.name}`;
+  }
+}
+document.getElementById("signup-submit").addEventListener("click", () => {
+  const name = document.getElementById("signup-name").value.trim();
+  const email = document.getElementById("signup-email").value.trim();
+  const err = document.getElementById("signup-error");
+  err.textContent = "";
+  if (!/^[A-Za-z][A-Za-z\s.'-]{0,49}$/.test(name)) { err.textContent = "이름은 영문으로 입력하세요."; return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = "올바른 이메일을 입력하세요."; return; }
+  state.user = { name, email, joinedAt: new Date().toISOString() };
+  saveState(); applyUserUI(); toast(`환영합니다, ${name}!`);
+});
+applyUserUI();
 </script>
 </body>
 </html>
