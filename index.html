@@ -6,134 +6,197 @@
 <title>My English Lab</title>
 <style>
   :root {
-    --bg: #0d1117;
-    --bg-elev: #161b22;
-    --bg-hover: #1f2937;
-    --border: #30363d;
-    --text: #e6edf3;
-    --text-dim: #8b949e;
-    --accent: #58a6ff;
-    --accent-2: #3fb950;
-    --warn: #d29922;
-    --danger: #f85149;
-    --radius: 10px;
+    --bg-1: #6366f1;
+    --bg-2: #ec4899;
+    --bg-3: #06b6d4;
+    --bg-4: #8b5cf6;
+    --surface: rgba(255,255,255,0.72);
+    --surface-2: rgba(255,255,255,0.55);
+    --border: rgba(255,255,255,0.45);
+    --text: #0f172a;
+    --text-dim: #475569;
+    --accent: #6366f1;
+    --accent-2: #ec4899;
+    --accent-3: #06b6d4;
+    --success: #10b981;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --radius: 16px;
+    --shadow: 0 8px 32px rgba(31,38,135,0.18);
+  }
+  body.dark {
+    --surface: rgba(20,24,40,0.65);
+    --surface-2: rgba(20,24,40,0.45);
+    --border: rgba(255,255,255,0.10);
+    --text: #f1f5f9;
+    --text-dim: #94a3b8;
+    --shadow: 0 8px 32px rgba(0,0,0,0.5);
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; height: 100%; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", sans-serif;
-    background: var(--bg);
     color: var(--text);
-    display: flex;
     min-height: 100vh;
+    background:
+      radial-gradient(at 20% 10%, hsla(243,90%,68%,0.85) 0, transparent 50%),
+      radial-gradient(at 85% 15%, hsla(322,90%,65%,0.8) 0, transparent 50%),
+      radial-gradient(at 80% 85%, hsla(189,90%,55%,0.75) 0, transparent 50%),
+      radial-gradient(at 15% 80%, hsla(266,85%,68%,0.7) 0, transparent 50%),
+      linear-gradient(135deg, #fef3ff 0%, #e0f2fe 100%);
+    background-attachment: fixed;
+    display: flex;
   }
-  /* Sidebar */
+  body.dark {
+    background:
+      radial-gradient(at 20% 10%, hsla(243,80%,40%,0.6) 0, transparent 50%),
+      radial-gradient(at 85% 15%, hsla(322,75%,40%,0.55) 0, transparent 50%),
+      radial-gradient(at 80% 85%, hsla(189,80%,30%,0.55) 0, transparent 50%),
+      radial-gradient(at 15% 80%, hsla(266,70%,35%,0.5) 0, transparent 50%),
+      linear-gradient(135deg, #0a0e1a 0%, #1a1033 100%);
+    background-attachment: fixed;
+  }
+
   aside {
-    width: 240px;
-    background: var(--bg-elev);
+    width: 250px;
+    background: var(--surface);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     border-right: 1px solid var(--border);
-    padding: 20px 12px;
+    padding: 24px 14px;
     display: flex;
     flex-direction: column;
     gap: 4px;
     flex-shrink: 0;
+    position: sticky; top: 0; height: 100vh;
+    box-shadow: var(--shadow);
   }
   .brand {
-    font-size: 18px;
-    font-weight: 700;
-    padding: 8px 12px 16px;
-    color: var(--accent);
-    letter-spacing: 0.3px;
+    font-size: 19px;
+    font-weight: 800;
+    padding: 8px 12px 20px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    letter-spacing: -0.3px;
   }
-  .brand small { display: block; font-size: 11px; color: var(--text-dim); font-weight: 400; margin-top: 2px; }
+  .brand small { display: block; font-size: 11px; color: var(--text-dim); font-weight: 400; margin-top: 4px; -webkit-text-fill-color: var(--text-dim); }
   nav button {
-    background: transparent;
-    border: none;
+    background: transparent; border: none;
     color: var(--text-dim);
-    text-align: left;
-    padding: 10px 12px;
-    border-radius: var(--radius);
+    text-align: left; padding: 11px 14px;
+    border-radius: 12px; cursor: pointer;
+    font-size: 14px; font-weight: 500;
+    display: flex; align-items: center; gap: 12px;
+    transition: all 0.2s ease;
+    width: 100%;
+  }
+  nav button:hover { background: var(--surface-2); color: var(--text); transform: translateX(2px); }
+  nav button.active {
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: white;
+    box-shadow: 0 4px 14px rgba(99,102,241,0.4);
+  }
+  nav .icon { width: 20px; display: inline-block; text-align: center; font-size: 16px; }
+  .theme-toggle {
+    margin-top: auto;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px;
+    border-radius: 12px;
     cursor: pointer;
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    transition: all 0.15s;
+    font-size: 13px;
   }
-  nav button:hover { background: var(--bg-hover); color: var(--text); }
-  nav button.active { background: rgba(88,166,255,0.12); color: var(--accent); }
-  nav .icon { width: 18px; display: inline-block; text-align: center; }
 
-  /* Main */
-  main {
-    flex: 1;
-    padding: 32px 40px;
-    overflow-y: auto;
+  main { flex: 1; padding: 36px 44px; overflow-y: auto; }
+  h1 {
+    margin: 0 0 6px; font-size: 28px; font-weight: 800;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, var(--text), var(--accent));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
-  h1 { margin: 0 0 4px; font-size: 24px; }
-  h2 { font-size: 16px; margin: 0 0 12px; color: var(--text-dim); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
-  .page { display: none; }
+  h2 { font-size: 13px; margin: 0 0 14px; color: var(--text-dim); font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+  .page { display: none; animation: fadeIn 0.3s ease; }
   .page.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
   .subtitle { color: var(--text-dim); margin-bottom: 28px; font-size: 14px; }
 
-  /* Cards */
-  .grid { display: grid; gap: 16px; }
-  .grid-stats { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom: 28px; }
+  .grid { display: grid; gap: 18px; }
+  .grid-stats { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); margin-bottom: 24px; }
+  .grid-charts { grid-template-columns: 2fr 1fr; gap: 18px; margin-bottom: 18px; }
+  @media (max-width: 1100px) { .grid-charts { grid-template-columns: 1fr; } }
+
   .card {
-    background: var(--bg-elev);
+    background: var(--surface);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 18px;
+    padding: 22px;
+    box-shadow: var(--shadow);
+    transition: transform 0.2s ease;
   }
-  .stat .label { font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
-  .stat .value { font-size: 28px; font-weight: 700; margin-top: 6px; }
-  .stat .delta { font-size: 12px; color: var(--accent-2); margin-top: 4px; }
+  .card.hover:hover { transform: translateY(-2px); }
+  .stat .label { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1.2px; font-weight: 700; }
+  .stat .value {
+    font-size: 32px; font-weight: 800; margin-top: 8px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .stat .delta { font-size: 12px; color: var(--text-dim); margin-top: 6px; font-weight: 500; }
 
-  /* Reading */
-  .passage { line-height: 1.8; font-size: 15px; }
-  .passage .word { cursor: pointer; padding: 1px 2px; border-radius: 3px; transition: background 0.1s; }
-  .passage .word:hover { background: rgba(88,166,255,0.2); }
-  .passage .word.known { color: var(--accent-2); }
-  .translation { margin-top: 16px; padding: 14px; background: var(--bg); border-left: 3px solid var(--accent); border-radius: 4px; color: var(--text-dim); font-size: 14px; line-height: 1.7; display: none; }
+  .passage { line-height: 1.85; font-size: 15.5px; }
+  .passage .word { cursor: pointer; padding: 1px 3px; border-radius: 4px; transition: all 0.15s; }
+  .passage .word:hover { background: linear-gradient(135deg, rgba(99,102,241,0.18), rgba(236,72,153,0.18)); }
+  .passage .word.known { color: var(--success); }
+  .translation { margin-top: 16px; padding: 16px; background: var(--surface-2); border-left: 3px solid var(--accent); border-radius: 8px; color: var(--text-dim); font-size: 14.5px; line-height: 1.75; display: none; }
   .translation.show { display: block; }
-  .toolbar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .toolbar { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; align-items: center; }
 
-  /* Buttons / inputs */
   button.btn, .btn {
-    background: var(--accent);
-    color: #0d1117;
-    border: none;
-    padding: 8px 16px;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 600;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: white; border: none;
+    padding: 10px 18px; border-radius: 10px;
+    font-size: 13px; font-weight: 600;
     cursor: pointer;
-    transition: opacity 0.15s;
+    transition: all 0.2s;
+    box-shadow: 0 4px 14px rgba(99,102,241,0.3);
   }
-  button.btn:hover { opacity: 0.85; }
-  button.btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
-  button.btn-ghost:hover { background: var(--bg-hover); }
-  input[type="text"], input[type="url"], select, textarea {
-    background: var(--bg);
+  button.btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(99,102,241,0.45); }
+  button.btn-ghost {
+    background: var(--surface-2);
     color: var(--text);
     border: 1px solid var(--border);
-    padding: 9px 12px;
-    border-radius: 6px;
+    box-shadow: none;
+  }
+  button.btn-ghost:hover { background: var(--surface); transform: translateY(-1px); }
+  input[type="text"], input[type="url"], select, textarea {
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 10px 14px;
+    border-radius: 10px;
     font-size: 14px;
     font-family: inherit;
     width: 100%;
+    backdrop-filter: blur(8px);
   }
-  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
 
-  /* Scraper */
-  .scraper-input { display: flex; gap: 8px; margin-bottom: 20px; }
+  .scraper-input { display: flex; gap: 10px; margin-bottom: 22px; }
   .scraper-input input { flex: 1; }
-  .scraper-results { display: grid; gap: 16px; grid-template-columns: 1fr; }
-  .extract-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+  .extract-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 18px; flex-wrap: wrap; }
   .extract-tabs button {
     background: transparent; border: none; color: var(--text-dim);
-    padding: 10px 14px; cursor: pointer; font-size: 13px;
+    padding: 10px 14px; cursor: pointer; font-size: 13px; font-weight: 600;
     border-bottom: 2px solid transparent;
+    transition: all 0.2s;
   }
   .extract-tabs button.active { color: var(--accent); border-bottom-color: var(--accent); }
   .extract-pane { display: none; }
@@ -141,38 +204,65 @@
   .vocab-list { list-style: none; padding: 0; margin: 0; }
   .vocab-list li {
     display: flex; justify-content: space-between; align-items: center;
-    padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px;
+    padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px;
   }
   .vocab-list li:last-child { border-bottom: none; }
-  .badge { background: rgba(88,166,255,0.15); color: var(--accent); padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .badge { background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(236,72,153,0.2)); color: var(--accent); padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; }
 
-  /* Sentences */
-  .sentence-item { padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px; line-height: 1.7; }
+  .sentence-item { padding: 11px 0; border-bottom: 1px solid var(--border); font-size: 14px; line-height: 1.75; }
   .sentence-item:last-child { border-bottom: none; }
-  .sentence-item .num { color: var(--text-dim); font-size: 12px; margin-right: 8px; }
+  .sentence-item .num { color: var(--text-dim); font-size: 12px; margin-right: 10px; font-weight: 700; }
 
-  /* Empty / loading */
-  .empty { text-align: center; padding: 40px 20px; color: var(--text-dim); font-size: 14px; }
+  .empty { text-align: center; padding: 44px 20px; color: var(--text-dim); font-size: 14px; }
   .loading { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
-  /* Streak chart */
-  .streak-grid { display: grid; grid-template-columns: repeat(14, 1fr); gap: 4px; margin-top: 8px; }
-  .streak-cell { aspect-ratio: 1; border-radius: 3px; background: var(--bg); border: 1px solid var(--border); }
-  .streak-cell.l1 { background: rgba(63,185,80,0.3); }
-  .streak-cell.l2 { background: rgba(63,185,80,0.6); }
-  .streak-cell.l3 { background: var(--accent-2); }
-
-  /* Toast */
   .toast {
-    position: fixed; bottom: 24px; right: 24px;
-    background: var(--bg-elev); border: 1px solid var(--border);
-    padding: 12px 18px; border-radius: 8px; font-size: 13px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    position: fixed; bottom: 28px; right: 28px;
+    background: var(--surface);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    padding: 14px 20px; border-radius: 12px; font-size: 13px; font-weight: 500;
+    box-shadow: var(--shadow);
     transform: translateY(100px); opacity: 0;
-    transition: all 0.3s;
+    transition: all 0.3s cubic-bezier(.2,.9,.3,1.2);
+    color: var(--text);
+    z-index: 1000;
   }
   .toast.show { transform: translateY(0); opacity: 1; }
+
+  .chart-svg { width: 100%; height: auto; display: block; }
+
+  /* Engoo bilingual */
+  .bilingual { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .bilingual { grid-template-columns: 1fr; } }
+  .bilingual .col {
+    background: var(--surface-2);
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+  }
+  .bilingual .col h3 {
+    font-size: 12px; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--text-dim); margin: 0 0 10px;
+  }
+  .bilingual p { margin: 0 0 12px; line-height: 1.8; font-size: 15px; }
+  .bilingual p:last-child { margin-bottom: 0; }
+  .vocab-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px,1fr)); gap: 12px; }
+  .vocab-grid .vc {
+    padding: 12px; background: var(--surface-2);
+    border: 1px solid var(--border); border-radius: 10px;
+  }
+  .vocab-grid .vc strong { font-size: 16px; }
+  .vocab-grid .vc .pos { font-size: 11px; color: var(--accent-2); font-weight: 700; text-transform: uppercase; }
+  .vocab-grid .vc .def { font-size: 13px; color: var(--text-dim); margin-top: 4px; line-height: 1.55; }
+  .qa-item {
+    padding: 12px 0; border-bottom: 1px dashed var(--border);
+    font-size: 14.5px; line-height: 1.7;
+  }
+  .qa-item:last-child { border-bottom: none; }
+  .qa-en { color: var(--text); }
+  .qa-ko { color: var(--text-dim); margin-top: 4px; font-size: 13.5px; }
 </style>
 </head>
 <body>
@@ -185,55 +275,65 @@
   <nav id="nav">
     <button data-page="dashboard" class="active"><span class="icon">📊</span>대시보드</button>
     <button data-page="reading"><span class="icon">📖</span>독해 연습</button>
+    <button data-page="engoo"><span class="icon">🌐</span>Engoo 이중언어</button>
     <button data-page="scraper"><span class="icon">🔗</span>URL 분석</button>
     <button data-page="vocab"><span class="icon">🗂️</span>내 단어장</button>
     <button data-page="settings"><span class="icon">⚙️</span>설정</button>
   </nav>
+  <button class="theme-toggle" id="theme-toggle">🌗 테마 전환</button>
 </aside>
 
 <main>
-  <!-- DASHBOARD -->
   <section id="page-dashboard" class="page active">
     <h1>대시보드</h1>
     <p class="subtitle">오늘도 한 걸음씩 — <span id="today-date"></span></p>
 
     <div class="grid grid-stats">
-      <div class="card stat">
+      <div class="card stat hover">
         <div class="label">현재 스트릭</div>
-        <div class="value"><span id="stat-streak">0</span> 일</div>
-        <div class="delta">🔥 연속 학습 일수</div>
+        <div class="value"><span id="stat-streak">0</span>일</div>
+        <div class="delta">🔥 연속 학습</div>
       </div>
-      <div class="card stat">
+      <div class="card stat hover">
         <div class="label">오늘 학습 시간</div>
-        <div class="value"><span id="stat-today-min">0</span> 분</div>
+        <div class="value"><span id="stat-today-min">0</span>분</div>
         <div class="delta" id="stat-today-delta">목표 30분</div>
       </div>
-      <div class="card stat">
+      <div class="card stat hover">
         <div class="label">총 학습 단어</div>
-        <div class="value"><span id="stat-words">0</span> 개</div>
-        <div class="delta">단어장에 저장됨</div>
+        <div class="value"><span id="stat-words">0</span>개</div>
+        <div class="delta">단어장 누적</div>
       </div>
-      <div class="card stat">
+      <div class="card stat hover">
         <div class="label">읽은 지문</div>
-        <div class="value"><span id="stat-passages">0</span> 개</div>
+        <div class="value"><span id="stat-passages">0</span>개</div>
         <div class="delta">누적</div>
       </div>
     </div>
 
+    <div class="grid grid-charts">
+      <div class="card">
+        <h2>최근 30일 학습 활동</h2>
+        <div id="chart-activity"></div>
+      </div>
+      <div class="card">
+        <h2>독해 진행도</h2>
+        <div id="chart-donut"></div>
+      </div>
+    </div>
+
     <div class="card">
-      <h2>최근 14일 학습 활동</h2>
-      <div class="streak-grid" id="streak-grid"></div>
-      <p style="color:var(--text-dim); font-size:12px; margin-top:12px;">색이 진할수록 학습 시간이 많은 날입니다.</p>
+      <h2>최근 7일 단어 추가</h2>
+      <div id="chart-vocab"></div>
     </div>
   </section>
 
-  <!-- READING -->
   <section id="page-reading" class="page">
     <h1>독해 연습</h1>
-    <p class="subtitle">단어를 클릭하면 의미를 단어장에 저장합니다.</p>
+    <p class="subtitle">단어를 클릭하면 단어장에 저장됩니다.</p>
 
     <div class="toolbar">
-      <select id="passage-select" style="max-width:320px;"></select>
+      <select id="passage-select" style="max-width:340px;"></select>
       <button class="btn btn-ghost" id="btn-toggle-translation">해석 보기</button>
       <button class="btn" id="btn-mark-read">읽음 처리</button>
     </div>
@@ -245,10 +345,23 @@
     </div>
   </section>
 
-  <!-- SCRAPER -->
+  <section id="page-engoo" class="page">
+    <h1>Engoo 이중언어 리더</h1>
+    <p class="subtitle">Engoo Daily News URL을 입력하면 좌측 영어 / 우측 자연스러운 한글 번역으로 보여줍니다.</p>
+
+    <div class="scraper-input">
+      <input type="url" id="engoo-url" placeholder="https://engoo.com/app/daily-news/article/..." value="https://engoo.com/app/daily-news/article/survey-finds-many-brits-not-confident-investing/g5t-_lp1EfG7VY-hEy5zGg" />
+      <button class="btn" id="btn-engoo">불러오기</button>
+    </div>
+
+    <div id="engoo-output">
+      <div class="card"><div class="empty">URL을 입력하고 [불러오기] 버튼을 누르세요.<br><br>Engoo Daily News 의 article 링크를 그대로 붙여넣으면 됩니다.</div></div>
+    </div>
+  </section>
+
   <section id="page-scraper" class="page">
     <h1>URL 분석</h1>
-    <p class="subtitle">웹페이지 URL을 입력하면 텍스트를 가져와 단어/문장/요약을 추출합니다. (CORS 프록시 사용)</p>
+    <p class="subtitle">웹페이지 URL을 입력하면 텍스트를 가져와 단어/문장을 추출합니다.</p>
 
     <div class="scraper-input">
       <input type="url" id="scraper-url" placeholder="https://example.com/article" />
@@ -256,11 +369,10 @@
     </div>
 
     <div id="scraper-output">
-      <div class="empty">URL을 입력하고 분석 버튼을 누르세요.</div>
+      <div class="card"><div class="empty">URL을 입력하고 분석 버튼을 누르세요.</div></div>
     </div>
   </section>
 
-  <!-- VOCAB -->
   <section id="page-vocab" class="page">
     <h1>내 단어장</h1>
     <p class="subtitle">학습 중 클릭한 단어들이 저장됩니다.</p>
@@ -269,14 +381,13 @@
     </div>
   </section>
 
-  <!-- SETTINGS -->
   <section id="page-settings" class="page">
     <h1>설정</h1>
     <p class="subtitle">로컬 데이터(LocalStorage) 관리</p>
 
-    <div class="card" style="margin-bottom:16px;">
+    <div class="card" style="margin-bottom:18px;">
       <h2>데이터</h2>
-      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
         <button class="btn btn-ghost" id="btn-export">JSON 내보내기</button>
         <button class="btn btn-ghost" id="btn-import">JSON 가져오기</button>
         <button class="btn btn-ghost" id="btn-reset" style="color:var(--danger); border-color:var(--danger);">전체 초기화</button>
@@ -285,7 +396,7 @@
 
     <div class="card">
       <h2>CORS 프록시</h2>
-      <p style="color:var(--text-dim); font-size:13px;">URL 분석 시 사용하는 프록시 서버 주소입니다.</p>
+      <p style="color:var(--text-dim); font-size:13px;">URL 분석 시 사용하는 프록시 서버 주소</p>
       <input type="text" id="proxy-url" />
     </div>
   </section>
@@ -294,63 +405,61 @@
 <div class="toast" id="toast"></div>
 
 <script>
-/* ============================================================
-   My English Lab - Single-file SPA
-   ============================================================ */
-
-// ---------- Sample Data ----------
 const SAMPLE_PASSAGES = [
   {
     id: "p1",
     title: "The Power of Habit",
     body: "Habits are the small decisions you make and actions you perform every day. According to researchers, more than 40 percent of the actions people performed each day were not actual decisions, but habits. Your life today is essentially the sum of your habits. How healthy or unhealthy you are is a result of your habits. How happy or sad you are is a result of your habits. How successful or unsuccessful you are is a result of your habits.",
-    translation: "습관은 당신이 매일 내리는 작은 결정과 행동입니다. 연구자들에 따르면, 사람들이 매일 수행하는 행동의 40% 이상은 실제 결정이 아니라 습관이었습니다. 오늘 당신의 삶은 본질적으로 당신 습관들의 총합입니다. 당신이 얼마나 건강한지 또는 건강하지 않은지는 당신의 습관의 결과입니다."
+    translation: "습관은 당신이 매일 내리는 작은 결정과 행동입니다. 연구자들에 따르면, 사람들이 매일 수행하는 행동의 40% 이상은 실제 결정이 아니라 습관이었습니다. 오늘 당신의 삶은 본질적으로 당신 습관들의 총합입니다."
   },
   {
     id: "p2",
     title: "Why We Sleep",
-    body: "Sleep is the single most effective thing we can do to reset our brain and body health each day. Within the brain, sleep enriches a diversity of functions, including our ability to learn, memorize, and make logical decisions. It recalibrates our emotional brain circuits, allowing us to navigate next-day social and psychological challenges with composure.",
-    translation: "수면은 매일 우리의 뇌와 몸의 건강을 재설정할 수 있는 가장 효과적인 단 하나의 행동입니다. 뇌 내부에서 수면은 학습, 기억, 그리고 논리적 결정을 내리는 능력을 포함한 다양한 기능을 풍부하게 합니다. 수면은 우리의 감정 회로를 재조정하여, 다음 날의 사회적·심리적 도전에 침착하게 대응하도록 해줍니다."
+    body: "Sleep is the single most effective thing we can do to reset our brain and body health each day. Within the brain, sleep enriches a diversity of functions, including our ability to learn, memorize, and make logical decisions.",
+    translation: "수면은 매일 우리의 뇌와 몸의 건강을 재설정할 수 있는 가장 효과적인 단 하나의 행동입니다. 뇌 내부에서 수면은 학습, 기억, 그리고 논리적 결정을 내리는 능력을 포함한 다양한 기능을 풍부하게 합니다."
   },
   {
     id: "p3",
     title: "Atomic Improvements",
-    body: "It is so easy to overestimate the importance of one defining moment and underestimate the value of making small improvements on a daily basis. Too often, we convince ourselves that massive success requires massive action. Meanwhile, improving by 1 percent isn't particularly notable, but it can be far more meaningful, especially in the long run.",
-    translation: "결정적 순간 하나의 중요성을 과대평가하고 매일 작은 개선을 만드는 것의 가치를 과소평가하기는 너무 쉽습니다. 너무 자주 우리는 거대한 성공이 거대한 행동을 요구한다고 스스로를 설득합니다. 한편, 1퍼센트 개선은 특별히 눈에 띄지 않지만, 특히 장기적으로 훨씬 더 의미 있을 수 있습니다."
+    body: "It is so easy to overestimate the importance of one defining moment and underestimate the value of making small improvements on a daily basis. Improving by 1 percent isn't particularly notable, but it can be far more meaningful, especially in the long run.",
+    translation: "결정적 순간 하나의 중요성을 과대평가하고 매일 작은 개선을 만드는 것의 가치를 과소평가하기는 너무 쉽습니다. 1퍼센트 개선은 특별히 눈에 띄지 않지만, 특히 장기적으로 훨씬 더 의미 있을 수 있습니다."
   }
 ];
 
 const DEFAULT_PROXY = "https://api.allorigins.win/get?url=";
+const JINA_PREFIX = "https://r.jina.ai/";
+const TRANSLATE_API = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=ko&dt=t&q=";
 
-// ---------- State (LocalStorage) ----------
 const STORE_KEY = "english_lab_v1";
 const defaultState = {
-  vocab: [],            // [{word, context, addedAt, source}]
-  passagesRead: [],     // [passageId]
-  activity: {},         // {YYYY-MM-DD: minutes}
-  proxy: DEFAULT_PROXY,
-  sessionStart: null
+  vocab: [], passagesRead: [], activity: {},
+  proxy: DEFAULT_PROXY, sessionStart: null,
+  theme: "light", vocabHistory: {}
 };
-
 function loadState() {
-  try {
-    const s = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
-    return { ...defaultState, ...(s || {}) };
-  } catch { return { ...defaultState }; }
+  try { const s = JSON.parse(localStorage.getItem(STORE_KEY) || "null"); return { ...defaultState, ...(s || {}) }; }
+  catch { return { ...defaultState }; }
 }
 function saveState() { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
 let state = loadState();
 
-// ---------- Utils ----------
 const $ = (s, root = document) => root.querySelector(s);
 const $$ = (s, root = document) => Array.from(root.querySelectorAll(s));
 const todayKey = () => new Date().toISOString().slice(0, 10);
 const toast = (msg) => {
   const t = $("#toast"); t.textContent = msg; t.classList.add("show");
-  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 2200);
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 2400);
 };
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); }
 
-// ---------- Navigation ----------
+function applyTheme() { document.body.classList.toggle("dark", state.theme === "dark"); }
+applyTheme();
+$("#theme-toggle").addEventListener("click", () => {
+  state.theme = state.theme === "dark" ? "light" : "dark";
+  saveState(); applyTheme();
+  if ($("#page-dashboard").classList.contains("active")) renderDashboard();
+});
+
 $$("#nav button").forEach(b => b.addEventListener("click", () => {
   const page = b.dataset.page;
   $$("#nav button").forEach(x => x.classList.toggle("active", x === b));
@@ -361,18 +470,15 @@ $$("#nav button").forEach(b => b.addEventListener("click", () => {
   if (page === "settings") $("#proxy-url").value = state.proxy;
 }));
 
-// ---------- Activity tracking ----------
 function tickActivity() {
   const k = todayKey();
-  state.activity[k] = (state.activity[k] || 0) + 1; // +1 minute per tick
+  state.activity[k] = (state.activity[k] || 0) + 1;
   saveState();
 }
 setInterval(tickActivity, 60_000);
 
-// ---------- Dashboard ----------
 function calcStreak() {
-  let streak = 0;
-  const d = new Date();
+  let streak = 0; const d = new Date();
   while (true) {
     const k = d.toISOString().slice(0, 10);
     if ((state.activity[k] || 0) > 0) { streak++; d.setDate(d.getDate() - 1); }
@@ -381,30 +487,122 @@ function calcStreak() {
   }
   return streak;
 }
+
 function renderDashboard() {
-  $("#today-date").textContent = new Date().toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "long" });
+  $("#today-date").textContent = new Date().toLocaleDateString("ko-KR", { year:"numeric", month:"long", day:"numeric", weekday:"long" });
   $("#stat-streak").textContent = calcStreak();
   const todayMin = state.activity[todayKey()] || 0;
   $("#stat-today-min").textContent = todayMin;
   $("#stat-today-delta").textContent = todayMin >= 30 ? "✅ 목표 달성" : `목표까지 ${30 - todayMin}분`;
   $("#stat-words").textContent = state.vocab.length;
   $("#stat-passages").textContent = state.passagesRead.length;
-
-  // Streak grid: last 14 days
-  const grid = $("#streak-grid"); grid.innerHTML = "";
-  for (let i = 13; i >= 0; i--) {
-    const d = new Date(); d.setDate(d.getDate() - i);
-    const k = d.toISOString().slice(0, 10);
-    const m = state.activity[k] || 0;
-    const cls = m === 0 ? "" : m < 10 ? "l1" : m < 30 ? "l2" : "l3";
-    const cell = document.createElement("div");
-    cell.className = "streak-cell " + cls;
-    cell.title = `${k}: ${m}분`;
-    grid.appendChild(cell);
-  }
+  drawActivityChart();
+  drawDonutChart();
+  drawVocabChart();
 }
 
-// ---------- Reading ----------
+function drawActivityChart() {
+  const days = 30;
+  const data = [];
+  for (let i = days-1; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const k = d.toISOString().slice(0,10);
+    data.push({ k, v: state.activity[k] || 0 });
+  }
+  const W = 760, H = 200, P = 30;
+  const max = Math.max(60, ...data.map(x => x.v));
+  const stepX = (W - P*2) / (data.length - 1);
+  const points = data.map((d,i) => [P + i*stepX, H - P - (d.v/max)*(H - P*2)]);
+  const path = points.map((p,i) => (i===0?`M${p[0]},${p[1]}`:`L${p[0]},${p[1]}`)).join(" ");
+  const area = `${path} L${points[points.length-1][0]},${H-P} L${points[0][0]},${H-P} Z`;
+  const dots = points.map((p,i) => `<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="#ec4899" stroke="white" stroke-width="2"><title>${data[i].k}: ${data[i].v}분</title></circle>`).join("");
+  const yLabels = [0, max/2, max].map((v,i) => `<text x="${P-6}" y="${H - P - (v/max)*(H - P*2) + 4}" text-anchor="end" font-size="10" fill="currentColor" opacity="0.55">${Math.round(v)}</text>`).join("");
+  const xLabels = data.filter((_,i) => i%5===0).map((d,i) => {
+    const idx = i*5;
+    return `<text x="${P + idx*stepX}" y="${H - 8}" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.55">${d.k.slice(5)}</text>`;
+  }).join("");
+  $("#chart-activity").innerHTML = `
+    <svg class="chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <linearGradient id="g-area" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stop-color="#6366f1" stop-opacity="0.55"/>
+          <stop offset="100%" stop-color="#ec4899" stop-opacity="0.05"/>
+        </linearGradient>
+        <linearGradient id="g-line" x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0%" stop-color="#6366f1"/>
+          <stop offset="100%" stop-color="#ec4899"/>
+        </linearGradient>
+      </defs>
+      <path d="${area}" fill="url(#g-area)" />
+      <path d="${path}" stroke="url(#g-line)" stroke-width="2.5" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
+      ${dots}
+      ${yLabels}
+      ${xLabels}
+    </svg>`;
+}
+
+function drawDonutChart() {
+  const total = SAMPLE_PASSAGES.length;
+  const done = state.passagesRead.filter(id => SAMPLE_PASSAGES.some(p => p.id === id)).length;
+  const pct = total ? done/total : 0;
+  const R = 70, C = 2 * Math.PI * R;
+  const off = C * (1 - pct);
+  $("#chart-donut").innerHTML = `
+    <div style="display:flex; align-items:center; justify-content:center; padding:8px;">
+      <svg viewBox="0 0 200 200" style="width:200px; height:200px;">
+        <defs>
+          <linearGradient id="g-donut" x1="0" x2="1" y1="0" y2="1">
+            <stop offset="0%" stop-color="#06b6d4"/>
+            <stop offset="100%" stop-color="#6366f1"/>
+          </linearGradient>
+        </defs>
+        <circle cx="100" cy="100" r="${R}" fill="none" stroke="currentColor" stroke-width="14" opacity="0.12"/>
+        <circle cx="100" cy="100" r="${R}" fill="none" stroke="url(#g-donut)" stroke-width="14"
+          stroke-linecap="round"
+          stroke-dasharray="${C}" stroke-dashoffset="${off}"
+          transform="rotate(-90 100 100)"/>
+        <text x="100" y="96" text-anchor="middle" font-size="32" font-weight="800" fill="currentColor">${Math.round(pct*100)}%</text>
+        <text x="100" y="120" text-anchor="middle" font-size="12" fill="currentColor" opacity="0.6">${done} / ${total} 지문</text>
+      </svg>
+    </div>`;
+}
+
+function drawVocabChart() {
+  const days = 7;
+  const buckets = [];
+  for (let i = days-1; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const k = d.toISOString().slice(0,10);
+    const c = state.vocab.filter(v => new Date(v.addedAt).toISOString().slice(0,10) === k).length;
+    buckets.push({ k, c });
+  }
+  const W = 760, H = 160, P = 28;
+  const max = Math.max(5, ...buckets.map(x => x.c));
+  const bw = (W - P*2) / buckets.length * 0.65;
+  const gap = (W - P*2) / buckets.length;
+  const bars = buckets.map((b,i) => {
+    const h = (b.c/max) * (H - P*2);
+    const x = P + i*gap + (gap-bw)/2;
+    const y = H - P - h;
+    return `
+      <rect x="${x}" y="${y}" width="${bw}" height="${h}" rx="6" fill="url(#g-bar)">
+        <title>${b.k}: ${b.c}개</title>
+      </rect>
+      <text x="${x + bw/2}" y="${y - 6}" text-anchor="middle" font-size="11" font-weight="700" fill="currentColor">${b.c || ""}</text>
+      <text x="${x + bw/2}" y="${H - 8}" text-anchor="middle" font-size="10" fill="currentColor" opacity="0.6">${b.k.slice(5)}</text>`;
+  }).join("");
+  $("#chart-vocab").innerHTML = `
+    <svg class="chart-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <linearGradient id="g-bar" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stop-color="#ec4899"/>
+          <stop offset="100%" stop-color="#6366f1"/>
+        </linearGradient>
+      </defs>
+      ${bars}
+    </svg>`;
+}
+
 function renderReading() {
   const sel = $("#passage-select");
   if (!sel.options.length) {
@@ -423,7 +621,6 @@ function loadPassage(id) {
   $("#passage-title").textContent = p.title;
   const body = $("#passage-body");
   body.innerHTML = "";
-  // tokenize words while keeping punctuation
   p.body.split(/(\s+)/).forEach(tok => {
     if (/^\s+$/.test(tok)) { body.appendChild(document.createTextNode(tok)); return; }
     const span = document.createElement("span");
@@ -449,7 +646,6 @@ $("#btn-mark-read").addEventListener("click", (e) => {
   } else toast("이미 읽은 지문입니다.");
 });
 
-// ---------- Vocab ----------
 function addVocab(word, source) {
   word = word.toLowerCase().trim();
   if (!word || word.length < 2) return;
@@ -458,8 +654,7 @@ function addVocab(word, source) {
   saveState(); toast(`+ ${word}`);
 }
 function renderVocab() {
-  const ul = $("#vocab-list");
-  ul.innerHTML = "";
+  const ul = $("#vocab-list"); ul.innerHTML = "";
   if (!state.vocab.length) {
     ul.innerHTML = '<li><div class="empty" style="width:100%;">단어를 클릭해서 단어장에 추가해보세요.</div></li>';
     return;
@@ -468,12 +663,12 @@ function renderVocab() {
     const li = document.createElement("li");
     li.innerHTML = `
       <div>
-        <strong>${v.word}</strong>
-        <div style="color:var(--text-dim); font-size:12px;">${v.source || ""}</div>
+        <strong>${escapeHtml(v.word)}</strong>
+        <div style="color:var(--text-dim); font-size:12px;">${escapeHtml(v.source || "")}</div>
       </div>
       <div style="display:flex; gap:8px; align-items:center;">
         <span class="badge">${new Date(v.addedAt).toLocaleDateString("ko-KR")}</span>
-        <button class="btn btn-ghost" data-w="${v.word}" style="padding:4px 8px;">삭제</button>
+        <button class="btn btn-ghost" style="padding:5px 10px;">삭제</button>
       </div>`;
     li.querySelector("button").addEventListener("click", () => {
       state.vocab = state.vocab.filter(x => x.word !== v.word); saveState(); renderVocab();
@@ -482,7 +677,185 @@ function renderVocab() {
   });
 }
 
-// ---------- URL Scraper ----------
+async function translateText(text) {
+  if (!text || !text.trim()) return "";
+  try {
+    const url = TRANSLATE_API + encodeURIComponent(text);
+    const res = await fetch((state.proxy || DEFAULT_PROXY) + encodeURIComponent(url));
+    const data = await res.json();
+    let payload = data.contents || "";
+    try { payload = JSON.parse(payload); } catch {}
+    if (Array.isArray(payload) && Array.isArray(payload[0])) {
+      return payload[0].map(seg => seg[0]).filter(Boolean).join("");
+    }
+    return "";
+  } catch (e) { return ""; }
+}
+
+async function fetchEngooMarkdown(url) {
+  const res = await fetch(JINA_PREFIX + url, { headers: { "Accept": "text/plain" } });
+  if (!res.ok) throw new Error("Jina Reader 응답 실패: " + res.status);
+  return await res.text();
+}
+
+function parseEngooMarkdown(md) {
+  const titleMatch = md.match(/^Title:\s*(.+)$/m);
+  const title = (titleMatch ? titleMatch[1] : "").replace(/\s*\|\s*Engoo Daily News\s*$/, "").trim();
+
+  const sections = {};
+  const sectionRe = /\[Exercise (\d+)\][\s\S]*?(?=\[Exercise \d+\]|Source\s*\n|Share this:|$)/g;
+  let m;
+  while ((m = sectionRe.exec(md)) !== null) {
+    sections[m[1]] = m[0];
+  }
+
+  const vocab = [];
+  if (sections["1"]) {
+    const block = sections["1"];
+    const wordRe = /\[([a-zA-Z][a-zA-Z' -]+)\]\(https:\/\/engoo\.com\/app\/words\/word\/[^)]+\)\s*\n+\s*(Verb|Noun|Adjective|Adverb|Preposition|Conjunction|Pronoun|Phrase|Idiom)\s*\n+\s*([^\n]+)\s*\n+\s*([^\n]+)/g;
+    let w;
+    while ((w = wordRe.exec(block)) !== null) {
+      vocab.push({ word: w[1].trim(), pos: w[2].trim(), ipa: w[3].trim(), def: w[4].trim() });
+    }
+  }
+
+  const paragraphs = [];
+  let audioInfo = "";
+  if (sections["2"]) {
+    let block = sections["2"];
+    const audioMatch = block.match(/AI Generated Audio\s+([\d:]+)\s*\/\s*([\d:]+)/);
+    if (audioMatch) audioInfo = `${audioMatch[1]} / ${audioMatch[2]}`;
+    block = block.replace(/^\[Exercise 2\][\s\S]*?Read the article aloud[^\n]*\n/, "");
+    block = block.replace(/AI Generated Audio[^\n]*\n/, "").replace(/^1x\s*$/m, "");
+    const lines = block.split(/\n+/).map(s => s.trim()).filter(Boolean);
+    const headerIdx = lines.findIndex(l => l.toLowerCase().includes(title.toLowerCase().slice(0, 20)));
+    const start = headerIdx >= 0 ? headerIdx + 1 : 0;
+    for (let i = start; i < lines.length; i++) {
+      const l = lines[i];
+      if (l.startsWith("[") || l.startsWith("#")) continue;
+      if (l.length < 20) continue;
+      paragraphs.push(l);
+    }
+  }
+
+  const extractNumberedQs = (block) => {
+    if (!block) return [];
+    const out = [];
+    const re = /^\d+\.\s*\n+\s*([^\n]+)/gm;
+    let q;
+    while ((q = re.exec(block)) !== null) out.push(q[1].trim());
+    return out;
+  };
+  const questions = extractNumberedQs(sections["3"]);
+  const discussion = extractNumberedQs(sections["4"]);
+  const further = extractNumberedQs(sections["5"]);
+
+  return { title, vocab, paragraphs, audioInfo, questions, discussion, further };
+}
+
+async function loadEngoo() {
+  const url = $("#engoo-url").value.trim();
+  if (!url) { toast("URL을 입력하세요."); return; }
+  const out = $("#engoo-output");
+  out.innerHTML = `<div class="card"><div class="empty"><span class="loading"></span> Engoo에서 가져오는 중…</div></div>`;
+  try {
+    const md = await fetchEngooMarkdown(url);
+    const data = parseEngooMarkdown(md);
+    if (!data.paragraphs.length) throw new Error("본문을 찾지 못했습니다.");
+
+    out.innerHTML = `
+      <div class="card">
+        <h2>제목</h2>
+        <div style="font-size:22px; font-weight:800; line-height:1.4; margin-bottom:6px;">${escapeHtml(data.title)}</div>
+        <div style="color:var(--text-dim); font-size:13px;">${escapeHtml(url)}</div>
+        ${data.audioInfo ? `<div style="margin-top:8px; font-size:12px; color:var(--text-dim);">🔊 AI Generated Audio · ${escapeHtml(data.audioInfo)}</div>` : ""}
+      </div>
+
+      ${data.vocab.length ? `
+      <div class="card" style="margin-top:18px;">
+        <h2>📚 핵심 단어</h2>
+        <div class="vocab-grid" id="engoo-vocab"></div>
+      </div>` : ""}
+
+      <div class="card" style="margin-top:18px;">
+        <h2>📖 본문 (좌: 영어 / 우: 한글)</h2>
+        <div class="bilingual" id="engoo-body">
+          <div class="col"><h3>English</h3><div id="engoo-en"></div></div>
+          <div class="col"><h3>한국어 (자연스러운 번역)</h3><div id="engoo-ko"></div></div>
+        </div>
+      </div>
+
+      ${data.questions.length ? `
+      <div class="card" style="margin-top:18px;">
+        <h2>❓ 본문 이해 질문</h2>
+        <div id="engoo-q"></div>
+      </div>` : ""}
+
+      ${data.discussion.length ? `
+      <div class="card" style="margin-top:18px;">
+        <h2>💬 토론</h2>
+        <div id="engoo-d"></div>
+      </div>` : ""}
+
+      ${data.further.length ? `
+      <div class="card" style="margin-top:18px;">
+        <h2>🧠 심층 토론</h2>
+        <div id="engoo-f"></div>
+      </div>` : ""}
+    `;
+
+    if (data.vocab.length) {
+      const vg = $("#engoo-vocab");
+      data.vocab.forEach(v => {
+        const div = document.createElement("div");
+        div.className = "vc";
+        div.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:baseline;">
+            <strong>${escapeHtml(v.word)}</strong>
+            <button class="btn btn-ghost" style="padding:3px 8px; font-size:11px;">+ 단어장</button>
+          </div>
+          <div class="pos">${escapeHtml(v.pos)} <span style="color:var(--text-dim); font-weight:400;">${escapeHtml(v.ipa)}</span></div>
+          <div class="def">${escapeHtml(v.def)}</div>`;
+        div.querySelector("button").addEventListener("click", () => addVocab(v.word, data.title));
+        vg.appendChild(div);
+      });
+    }
+
+    const enWrap = $("#engoo-en"), koWrap = $("#engoo-ko");
+    data.paragraphs.forEach(p => {
+      const ep = document.createElement("p"); ep.textContent = p; enWrap.appendChild(ep);
+      const kp = document.createElement("p"); kp.innerHTML = '<span class="loading"></span> 번역 중…'; koWrap.appendChild(kp);
+    });
+
+    for (let i = 0; i < data.paragraphs.length; i++) {
+      const ko = await translateText(data.paragraphs[i]);
+      koWrap.children[i].textContent = ko || "(번역 실패)";
+    }
+
+    const renderQA = async (containerId, items) => {
+      const c = $(containerId); if (!c) return;
+      for (const q of items) {
+        const div = document.createElement("div");
+        div.className = "qa-item";
+        div.innerHTML = `<div class="qa-en">${escapeHtml(q)}</div><div class="qa-ko"><span class="loading"></span> 번역 중…</div>`;
+        c.appendChild(div);
+      }
+      for (let i = 0; i < items.length; i++) {
+        const ko = await translateText(items[i]);
+        c.children[i].querySelector(".qa-ko").textContent = ko || "(번역 실패)";
+      }
+    };
+    if (data.questions.length) await renderQA("#engoo-q", data.questions);
+    if (data.discussion.length) await renderQA("#engoo-d", data.discussion);
+    if (data.further.length) await renderQA("#engoo-f", data.further);
+
+    toast("Engoo 로딩 완료");
+  } catch (e) {
+    out.innerHTML = `<div class="card"><div class="empty">❌ 실패: ${escapeHtml(e.message)}<br><br>네트워크 또는 r.jina.ai / allorigins 프록시 상태를 확인하세요.</div></div>`;
+  }
+}
+$("#btn-engoo").addEventListener("click", loadEngoo);
+
 $("#btn-scrape").addEventListener("click", scrapeUrl);
 async function scrapeUrl() {
   const url = $("#scraper-url").value.trim();
@@ -498,24 +871,22 @@ async function scrapeUrl() {
     const parsed = extractFromHtml(html);
     renderScraperResult(parsed, url);
   } catch (e) {
-    out.innerHTML = `<div class="card"><div class="empty">❌ 실패: ${e.message}<br><br>설정에서 CORS 프록시 주소를 확인하세요.</div></div>`;
+    out.innerHTML = `<div class="card"><div class="empty">❌ 실패: ${escapeHtml(e.message)}<br><br>설정에서 CORS 프록시를 확인하세요.</div></div>`;
   }
 }
 function extractFromHtml(html) {
   const doc = new DOMParser().parseFromString(html, "text/html");
-  // remove noise
   doc.querySelectorAll("script,style,nav,footer,header,aside,noscript,iframe").forEach(n => n.remove());
   const title = doc.querySelector("title")?.textContent?.trim() || doc.querySelector("h1")?.textContent?.trim() || "(제목 없음)";
   const desc = doc.querySelector('meta[name="description"]')?.content || doc.querySelector('meta[property="og:description"]')?.content || "";
   const text = (doc.body?.innerText || doc.body?.textContent || "").replace(/\s+/g, " ").trim();
   const sentences = text.match(/[^.!?]+[.!?]+/g)?.map(s => s.trim()).filter(s => s.split(" ").length >= 4 && s.length < 280) || [];
-  // word frequency (skip stopwords)
   const stop = new Set("the a an of and or but in on at to for from with by is are was were be been being have has had do does did this that these those i you he she it we they me him her them my your his its our their as not so if then than when while because also more most some any all very can could should would will may might about into out up down over under".split(" "));
   const freq = {};
   text.toLowerCase().split(/[^a-z']+/).forEach(w => {
     if (w.length >= 4 && !stop.has(w)) freq[w] = (freq[w] || 0) + 1;
   });
-  const topWords = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 30);
+  const topWords = Object.entries(freq).sort((a,b) => b[1]-a[1]).slice(0, 30);
   return { title, desc, sentences: sentences.slice(0, 30), topWords, fullLen: text.length };
 }
 function renderScraperResult(p, url) {
@@ -523,61 +894,50 @@ function renderScraperResult(p, url) {
   out.innerHTML = `
     <div class="card">
       <h2>요약</h2>
-      <div style="font-size:16px; font-weight:600; margin-bottom:6px;">${escapeHtml(p.title)}</div>
+      <div style="font-size:17px; font-weight:700; margin-bottom:6px;">${escapeHtml(p.title)}</div>
       <div style="color:var(--text-dim); font-size:13px; margin-bottom:8px;">${escapeHtml(url)}</div>
-      ${p.desc ? `<div style="color:var(--text-dim); font-size:14px; line-height:1.6;">${escapeHtml(p.desc)}</div>` : ""}
-      <div style="margin-top:12px; font-size:12px; color:var(--text-dim);">총 ${p.fullLen.toLocaleString()}자 · 문장 ${p.sentences.length}개 · 주요 단어 ${p.topWords.length}개</div>
+      ${p.desc ? `<div style="color:var(--text-dim); font-size:14px; line-height:1.65;">${escapeHtml(p.desc)}</div>` : ""}
+      <div style="margin-top:12px; font-size:12px; color:var(--text-dim);">총 ${p.fullLen.toLocaleString()}자 · 문장 ${p.sentences.length}개 · 단어 ${p.topWords.length}개</div>
     </div>
-    <div class="card">
+    <div class="card" style="margin-top:18px;">
       <div class="extract-tabs">
         <button class="active" data-tab="vocab">📚 핵심 단어</button>
         <button data-tab="sent">📝 문장 추출</button>
       </div>
-      <div class="extract-pane active" data-pane="vocab">
-        <ul class="vocab-list" id="scraped-vocab"></ul>
-      </div>
-      <div class="extract-pane" data-pane="sent">
-        <div id="scraped-sent"></div>
-      </div>
-    </div>
-  `;
-  // tabs
+      <div class="extract-pane active" data-pane="vocab"><ul class="vocab-list" id="scraped-vocab"></ul></div>
+      <div class="extract-pane" data-pane="sent"><div id="scraped-sent"></div></div>
+    </div>`;
   out.querySelectorAll(".extract-tabs button").forEach(b => b.addEventListener("click", () => {
     out.querySelectorAll(".extract-tabs button").forEach(x => x.classList.toggle("active", x === b));
     out.querySelectorAll(".extract-pane").forEach(x => x.classList.toggle("active", x.dataset.pane === b.dataset.tab));
   }));
-  // vocab list
   const vu = out.querySelector("#scraped-vocab");
   p.topWords.forEach(([w, c]) => {
     const li = document.createElement("li");
-    li.innerHTML = `<div><strong>${w}</strong></div>
+    li.innerHTML = `<div><strong>${escapeHtml(w)}</strong></div>
       <div style="display:flex; gap:8px; align-items:center;">
         <span class="badge">${c}회</span>
-        <button class="btn btn-ghost" style="padding:4px 8px;">+ 단어장</button>
+        <button class="btn btn-ghost" style="padding:5px 10px;">+ 단어장</button>
       </div>`;
     li.querySelector("button").addEventListener("click", () => addVocab(w, p.title));
     vu.appendChild(li);
   });
-  // sentences
   const su = out.querySelector("#scraped-sent");
   if (!p.sentences.length) su.innerHTML = '<div class="empty">추출된 문장이 없습니다.</div>';
   p.sentences.forEach((s, i) => {
     const div = document.createElement("div");
     div.className = "sentence-item";
-    div.innerHTML = `<span class="num">${i + 1}.</span>${escapeHtml(s)}`;
+    div.innerHTML = `<span class="num">${i+1}.</span>${escapeHtml(s)}`;
     su.appendChild(div);
   });
 }
-function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 
-// ---------- Settings ----------
 $("#btn-export").addEventListener("click", () => {
   const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
   a.download = `english-lab-${todayKey()}.json`;
-  a.click();
-  toast("내보냈습니다.");
+  a.click(); toast("내보냈습니다.");
 });
 $("#btn-import").addEventListener("click", () => {
   const inp = document.createElement("input"); inp.type = "file"; inp.accept = "application/json";
@@ -596,7 +956,6 @@ $("#btn-reset").addEventListener("click", () => {
 });
 $("#proxy-url").addEventListener("change", (e) => { state.proxy = e.target.value || DEFAULT_PROXY; saveState(); toast("프록시 저장됨"); });
 
-// ---------- Init ----------
 renderDashboard();
 </script>
 </body>
