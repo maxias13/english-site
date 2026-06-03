@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>My English Lab</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --bg-elev: #161b22;
+    --bg-hover: #1f2937;
+    --border: #30363d;
+    --text: #e6edf3;
+    --text-dim: #8b949e;
+    --accent: #58a6ff;
+    --accent-2: #3fb950;
+    --warn: #d29922;
+    --danger: #f85149;
+    --radius: 10px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans KR", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    min-height: 100vh;
+  }
+  /* Sidebar */
+  aside {
+    width: 240px;
+    background: var(--bg-elev);
+    border-right: 1px solid var(--border);
+    padding: 20px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .brand {
+    font-size: 18px;
+    font-weight: 700;
+    padding: 8px 12px 16px;
+    color: var(--accent);
+    letter-spacing: 0.3px;
+  }
+  .brand small { display: block; font-size: 11px; color: var(--text-dim); font-weight: 400; margin-top: 2px; }
+  nav button {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    text-align: left;
+    padding: 10px 12px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.15s;
+  }
+  nav button:hover { background: var(--bg-hover); color: var(--text); }
+  nav button.active { background: rgba(88,166,255,0.12); color: var(--accent); }
+  nav .icon { width: 18px; display: inline-block; text-align: center; }
+
+  /* Main */
+  main {
+    flex: 1;
+    padding: 32px 40px;
+    overflow-y: auto;
+  }
+  h1 { margin: 0 0 4px; font-size: 24px; }
+  h2 { font-size: 16px; margin: 0 0 12px; color: var(--text-dim); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+  .page { display: none; }
+  .page.active { display: block; }
+  .subtitle { color: var(--text-dim); margin-bottom: 28px; font-size: 14px; }
+
+  /* Cards */
+  .grid { display: grid; gap: 16px; }
+  .grid-stats { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin-bottom: 28px; }
+  .card {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+  }
+  .stat .label { font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat .value { font-size: 28px; font-weight: 700; margin-top: 6px; }
+  .stat .delta { font-size: 12px; color: var(--accent-2); margin-top: 4px; }
+
+  /* Reading */
+  .passage { line-height: 1.8; font-size: 15px; }
+  .passage .word { cursor: pointer; padding: 1px 2px; border-radius: 3px; transition: background 0.1s; }
+  .passage .word:hover { background: rgba(88,166,255,0.2); }
+  .passage .word.known { color: var(--accent-2); }
+  .translation { margin-top: 16px; padding: 14px; background: var(--bg); border-left: 3px solid var(--accent); border-radius: 4px; color: var(--text-dim); font-size: 14px; line-height: 1.7; display: none; }
+  .translation.show { display: block; }
+  .toolbar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+
+  /* Buttons / inputs */
+  button.btn, .btn {
+    background: var(--accent);
+    color: #0d1117;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  button.btn:hover { opacity: 0.85; }
+  button.btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
+  button.btn-ghost:hover { background: var(--bg-hover); }
+  input[type="text"], input[type="url"], select, textarea {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 9px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: inherit;
+    width: 100%;
+  }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); }
+
+  /* Scraper */
+  .scraper-input { display: flex; gap: 8px; margin-bottom: 20px; }
+  .scraper-input input { flex: 1; }
+  .scraper-results { display: grid; gap: 16px; grid-template-columns: 1fr; }
+  .extract-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+  .extract-tabs button {
+    background: transparent; border: none; color: var(--text-dim);
+    padding: 10px 14px; cursor: pointer; font-size: 13px;
+    border-bottom: 2px solid transparent;
+  }
+  .extract-tabs button.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .extract-pane { display: none; }
+  .extract-pane.active { display: block; }
+  .vocab-list { list-style: none; padding: 0; margin: 0; }
+  .vocab-list li {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 14px;
+  }
+  .vocab-list li:last-child { border-bottom: none; }
+  .badge { background: rgba(88,166,255,0.15); color: var(--accent); padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+
+  /* Sentences */
+  .sentence-item { padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px; line-height: 1.7; }
+  .sentence-item:last-child { border-bottom: none; }
+  .sentence-item .num { color: var(--text-dim); font-size: 12px; margin-right: 8px; }
+
+  /* Empty / loading */
+  .empty { text-align: center; padding: 40px 20px; color: var(--text-dim); font-size: 14px; }
+  .loading { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Streak chart */
+  .streak-grid { display: grid; grid-template-columns: repeat(14, 1fr); gap: 4px; margin-top: 8px; }
+  .streak-cell { aspect-ratio: 1; border-radius: 3px; background: var(--bg); border: 1px solid var(--border); }
+  .streak-cell.l1 { background: rgba(63,185,80,0.3); }
+  .streak-cell.l2 { background: rgba(63,185,80,0.6); }
+  .streak-cell.l3 { background: var(--accent-2); }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 24px; right: 24px;
+    background: var(--bg-elev); border: 1px solid var(--border);
+    padding: 12px 18px; border-radius: 8px; font-size: 13px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    transform: translateY(100px); opacity: 0;
+    transition: all 0.3s;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+</style>
+</head>
+<body>
+
+<aside>
+  <div class="brand">
+    My English Lab
+    <small>Personal study workspace</small>
+  </div>
+  <nav id="nav">
+    <button data-page="dashboard" class="active"><span class="icon">📊</span>대시보드</button>
+    <button data-page="reading"><span class="icon">📖</span>독해 연습</button>
+    <button data-page="scraper"><span class="icon">🔗</span>URL 분석</button>
+    <button data-page="vocab"><span class="icon">🗂️</span>내 단어장</button>
+    <button data-page="settings"><span class="icon">⚙️</span>설정</button>
+  </nav>
+</aside>
+
+<main>
+  <!-- DASHBOARD -->
+  <section id="page-dashboard" class="page active">
+    <h1>대시보드</h1>
+    <p class="subtitle">오늘도 한 걸음씩 — <span id="today-date"></span></p>
+
+    <div class="grid grid-stats">
+      <div class="card stat">
+        <div class="label">현재 스트릭</div>
+        <div class="value"><span id="stat-streak">0</span> 일</div>
+        <div class="delta">🔥 연속 학습 일수</div>
+      </div>
+      <div class="card stat">
+        <div class="label">오늘 학습 시간</div>
+        <div class="value"><span id="stat-today-min">0</span> 분</div>
+        <div class="delta" id="stat-today-delta">목표 30분</div>
+      </div>
+      <div class="card stat">
+        <div class="label">총 학습 단어</div>
+        <div class="value"><span id="stat-words">0</span> 개</div>
+        <div class="delta">단어장에 저장됨</div>
+      </div>
+      <div class="card stat">
+        <div class="label">읽은 지문</div>
+        <div class="value"><span id="stat-passages">0</span> 개</div>
+        <div class="delta">누적</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>최근 14일 학습 활동</h2>
+      <div class="streak-grid" id="streak-grid"></div>
+      <p style="color:var(--text-dim); font-size:12px; margin-top:12px;">색이 진할수록 학습 시간이 많은 날입니다.</p>
+    </div>
+  </section>
+
+  <!-- READING -->
+  <section id="page-reading" class="page">
+    <h1>독해 연습</h1>
+    <p class="subtitle">단어를 클릭하면 의미를 단어장에 저장합니다.</p>
+
+    <div class="toolbar">
+      <select id="passage-select" style="max-width:320px;"></select>
+      <button class="btn btn-ghost" id="btn-toggle-translation">해석 보기</button>
+      <button class="btn" id="btn-mark-read">읽음 처리</button>
+    </div>
+
+    <div class="card">
+      <h2 id="passage-title">—</h2>
+      <div class="passage" id="passage-body"></div>
+      <div class="translation" id="passage-translation"></div>
+    </div>
+  </section>
+
+  <!-- SCRAPER -->
+  <section id="page-scraper" class="page">
+    <h1>URL 분석</h1>
+    <p class="subtitle">웹페이지 URL을 입력하면 텍스트를 가져와 단어/문장/요약을 추출합니다. (CORS 프록시 사용)</p>
+
+    <div class="scraper-input">
+      <input type="url" id="scraper-url" placeholder="https://example.com/article" />
+      <button class="btn" id="btn-scrape">분석</button>
+    </div>
+
+    <div id="scraper-output">
+      <div class="empty">URL을 입력하고 분석 버튼을 누르세요.</div>
+    </div>
+  </section>
+
+  <!-- VOCAB -->
+  <section id="page-vocab" class="page">
+    <h1>내 단어장</h1>
+    <p class="subtitle">학습 중 클릭한 단어들이 저장됩니다.</p>
+    <div class="card">
+      <ul class="vocab-list" id="vocab-list"></ul>
+    </div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="page-settings" class="page">
+    <h1>설정</h1>
+    <p class="subtitle">로컬 데이터(LocalStorage) 관리</p>
+
+    <div class="card" style="margin-bottom:16px;">
+      <h2>데이터</h2>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn btn-ghost" id="btn-export">JSON 내보내기</button>
+        <button class="btn btn-ghost" id="btn-import">JSON 가져오기</button>
+        <button class="btn btn-ghost" id="btn-reset" style="color:var(--danger); border-color:var(--danger);">전체 초기화</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>CORS 프록시</h2>
+      <p style="color:var(--text-dim); font-size:13px;">URL 분석 시 사용하는 프록시 서버 주소입니다.</p>
+      <input type="text" id="proxy-url" />
+    </div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   My English Lab - Single-file SPA
+   ============================================================ */
+
+// ---------- Sample Data ----------
+const SAMPLE_PASSAGES = [
+  {
+    id: "p1",
+    title: "The Power of Habit",
+    body: "Habits are the small decisions you make and actions you perform every day. According to researchers, more than 40 percent of the actions people performed each day were not actual decisions, but habits. Your life today is essentially the sum of your habits. How healthy or unhealthy you are is a result of your habits. How happy or sad you are is a result of your habits. How successful or unsuccessful you are is a result of your habits.",
+    translation: "습관은 당신이 매일 내리는 작은 결정과 행동입니다. 연구자들에 따르면, 사람들이 매일 수행하는 행동의 40% 이상은 실제 결정이 아니라 습관이었습니다. 오늘 당신의 삶은 본질적으로 당신 습관들의 총합입니다. 당신이 얼마나 건강한지 또는 건강하지 않은지는 당신의 습관의 결과입니다."
+  },
+  {
+    id: "p2",
+    title: "Why We Sleep",
+    body: "Sleep is the single most effective thing we can do to reset our brain and body health each day. Within the brain, sleep enriches a diversity of functions, including our ability to learn, memorize, and make logical decisions. It recalibrates our emotional brain circuits, allowing us to navigate next-day social and psychological challenges with composure.",
+    translation: "수면은 매일 우리의 뇌와 몸의 건강을 재설정할 수 있는 가장 효과적인 단 하나의 행동입니다. 뇌 내부에서 수면은 학습, 기억, 그리고 논리적 결정을 내리는 능력을 포함한 다양한 기능을 풍부하게 합니다. 수면은 우리의 감정 회로를 재조정하여, 다음 날의 사회적·심리적 도전에 침착하게 대응하도록 해줍니다."
+  },
+  {
+    id: "p3",
+    title: "Atomic Improvements",
+    body: "It is so easy to overestimate the importance of one defining moment and underestimate the value of making small improvements on a daily basis. Too often, we convince ourselves that massive success requires massive action. Meanwhile, improving by 1 percent isn't particularly notable, but it can be far more meaningful, especially in the long run.",
+    translation: "결정적 순간 하나의 중요성을 과대평가하고 매일 작은 개선을 만드는 것의 가치를 과소평가하기는 너무 쉽습니다. 너무 자주 우리는 거대한 성공이 거대한 행동을 요구한다고 스스로를 설득합니다. 한편, 1퍼센트 개선은 특별히 눈에 띄지 않지만, 특히 장기적으로 훨씬 더 의미 있을 수 있습니다."
+  }
+];
+
+const DEFAULT_PROXY = "https://api.allorigins.win/get?url=";
+
+// ---------- State (LocalStorage) ----------
+const STORE_KEY = "english_lab_v1";
+const defaultState = {
+  vocab: [],            // [{word, context, addedAt, source}]
+  passagesRead: [],     // [passageId]
+  activity: {},         // {YYYY-MM-DD: minutes}
+  proxy: DEFAULT_PROXY,
+  sessionStart: null
+};
+
+function loadState() {
+  try {
+    const s = JSON.parse(localStorage.getItem(STORE_KEY) || "null");
+    return { ...defaultState, ...(s || {}) };
+  } catch { return { ...defaultState }; }
+}
+function saveState() { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+let state = loadState();
+
+// ---------- Utils ----------
+const $ = (s, root = document) => root.querySelector(s);
+const $$ = (s, root = document) => Array.from(root.querySelectorAll(s));
+const todayKey = () => new Date().toISOString().slice(0, 10);
+const toast = (msg) => {
+  const t = $("#toast"); t.textContent = msg; t.classList.add("show");
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 2200);
+};
+
+// ---------- Navigation ----------
+$$("#nav button").forEach(b => b.addEventListener("click", () => {
+  const page = b.dataset.page;
+  $$("#nav button").forEach(x => x.classList.toggle("active", x === b));
+  $$(".page").forEach(p => p.classList.toggle("active", p.id === `page-${page}`));
+  if (page === "dashboard") renderDashboard();
+  if (page === "vocab") renderVocab();
+  if (page === "reading") renderReading();
+  if (page === "settings") $("#proxy-url").value = state.proxy;
+}));
+
+// ---------- Activity tracking ----------
+function tickActivity() {
+  const k = todayKey();
+  state.activity[k] = (state.activity[k] || 0) + 1; // +1 minute per tick
+  saveState();
+}
+setInterval(tickActivity, 60_000);
+
+// ---------- Dashboard ----------
+function calcStreak() {
+  let streak = 0;
+  const d = new Date();
+  while (true) {
+    const k = d.toISOString().slice(0, 10);
+    if ((state.activity[k] || 0) > 0) { streak++; d.setDate(d.getDate() - 1); }
+    else break;
+    if (streak > 365) break;
+  }
+  return streak;
+}
+function renderDashboard() {
+  $("#today-date").textContent = new Date().toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "long" });
+  $("#stat-streak").textContent = calcStreak();
+  const todayMin = state.activity[todayKey()] || 0;
+  $("#stat-today-min").textContent = todayMin;
+  $("#stat-today-delta").textContent = todayMin >= 30 ? "✅ 목표 달성" : `목표까지 ${30 - todayMin}분`;
+  $("#stat-words").textContent = state.vocab.length;
+  $("#stat-passages").textContent = state.passagesRead.length;
+
+  // Streak grid: last 14 days
+  const grid = $("#streak-grid"); grid.innerHTML = "";
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const k = d.toISOString().slice(0, 10);
+    const m = state.activity[k] || 0;
+    const cls = m === 0 ? "" : m < 10 ? "l1" : m < 30 ? "l2" : "l3";
+    const cell = document.createElement("div");
+    cell.className = "streak-cell " + cls;
+    cell.title = `${k}: ${m}분`;
+    grid.appendChild(cell);
+  }
+}
+
+// ---------- Reading ----------
+function renderReading() {
+  const sel = $("#passage-select");
+  if (!sel.options.length) {
+    SAMPLE_PASSAGES.forEach(p => {
+      const o = document.createElement("option");
+      o.value = p.id; o.textContent = p.title;
+      sel.appendChild(o);
+    });
+    sel.addEventListener("change", () => loadPassage(sel.value));
+  }
+  loadPassage(sel.value || SAMPLE_PASSAGES[0].id);
+}
+function loadPassage(id) {
+  const p = SAMPLE_PASSAGES.find(x => x.id === id);
+  if (!p) return;
+  $("#passage-title").textContent = p.title;
+  const body = $("#passage-body");
+  body.innerHTML = "";
+  // tokenize words while keeping punctuation
+  p.body.split(/(\s+)/).forEach(tok => {
+    if (/^\s+$/.test(tok)) { body.appendChild(document.createTextNode(tok)); return; }
+    const span = document.createElement("span");
+    span.className = "word";
+    span.textContent = tok;
+    span.addEventListener("click", () => addVocab(tok.replace(/[^\w'-]/g, ""), p.title));
+    body.appendChild(span);
+  });
+  $("#passage-translation").textContent = p.translation;
+  $("#passage-translation").classList.remove("show");
+  $("#btn-toggle-translation").textContent = "해석 보기";
+  $("#btn-mark-read").dataset.pid = p.id;
+}
+$("#btn-toggle-translation").addEventListener("click", () => {
+  const t = $("#passage-translation");
+  t.classList.toggle("show");
+  $("#btn-toggle-translation").textContent = t.classList.contains("show") ? "해석 숨기기" : "해석 보기";
+});
+$("#btn-mark-read").addEventListener("click", (e) => {
+  const pid = e.currentTarget.dataset.pid;
+  if (pid && !state.passagesRead.includes(pid)) {
+    state.passagesRead.push(pid); saveState(); toast("읽음으로 표시했습니다.");
+  } else toast("이미 읽은 지문입니다.");
+});
+
+// ---------- Vocab ----------
+function addVocab(word, source) {
+  word = word.toLowerCase().trim();
+  if (!word || word.length < 2) return;
+  if (state.vocab.find(v => v.word === word)) { toast(`이미 단어장에 있어요: ${word}`); return; }
+  state.vocab.push({ word, source: source || "", addedAt: Date.now() });
+  saveState(); toast(`+ ${word}`);
+}
+function renderVocab() {
+  const ul = $("#vocab-list");
+  ul.innerHTML = "";
+  if (!state.vocab.length) {
+    ul.innerHTML = '<li><div class="empty" style="width:100%;">단어를 클릭해서 단어장에 추가해보세요.</div></li>';
+    return;
+  }
+  state.vocab.slice().reverse().forEach(v => {
+    const li = document.createElement("li");
+    li.innerHTML = `
+      <div>
+        <strong>${v.word}</strong>
+        <div style="color:var(--text-dim); font-size:12px;">${v.source || ""}</div>
+      </div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <span class="badge">${new Date(v.addedAt).toLocaleDateString("ko-KR")}</span>
+        <button class="btn btn-ghost" data-w="${v.word}" style="padding:4px 8px;">삭제</button>
+      </div>`;
+    li.querySelector("button").addEventListener("click", () => {
+      state.vocab = state.vocab.filter(x => x.word !== v.word); saveState(); renderVocab();
+    });
+    ul.appendChild(li);
+  });
+}
+
+// ---------- URL Scraper ----------
+$("#btn-scrape").addEventListener("click", scrapeUrl);
+async function scrapeUrl() {
+  const url = $("#scraper-url").value.trim();
+  if (!url) { toast("URL을 입력하세요."); return; }
+  const out = $("#scraper-output");
+  out.innerHTML = `<div class="card"><div class="empty"><span class="loading"></span> 가져오는 중…</div></div>`;
+  try {
+    const proxy = state.proxy || DEFAULT_PROXY;
+    const res = await fetch(proxy + encodeURIComponent(url));
+    const data = await res.json();
+    const html = data.contents || "";
+    if (!html) throw new Error("빈 응답");
+    const parsed = extractFromHtml(html);
+    renderScraperResult(parsed, url);
+  } catch (e) {
+    out.innerHTML = `<div class="card"><div class="empty">❌ 실패: ${e.message}<br><br>설정에서 CORS 프록시 주소를 확인하세요.</div></div>`;
+  }
+}
+function extractFromHtml(html) {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  // remove noise
+  doc.querySelectorAll("script,style,nav,footer,header,aside,noscript,iframe").forEach(n => n.remove());
+  const title = doc.querySelector("title")?.textContent?.trim() || doc.querySelector("h1")?.textContent?.trim() || "(제목 없음)";
+  const desc = doc.querySelector('meta[name="description"]')?.content || doc.querySelector('meta[property="og:description"]')?.content || "";
+  const text = (doc.body?.innerText || doc.body?.textContent || "").replace(/\s+/g, " ").trim();
+  const sentences = text.match(/[^.!?]+[.!?]+/g)?.map(s => s.trim()).filter(s => s.split(" ").length >= 4 && s.length < 280) || [];
+  // word frequency (skip stopwords)
+  const stop = new Set("the a an of and or but in on at to for from with by is are was were be been being have has had do does did this that these those i you he she it we they me him her them my your his its our their as not so if then than when while because also more most some any all very can could should would will may might about into out up down over under".split(" "));
+  const freq = {};
+  text.toLowerCase().split(/[^a-z']+/).forEach(w => {
+    if (w.length >= 4 && !stop.has(w)) freq[w] = (freq[w] || 0) + 1;
+  });
+  const topWords = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 30);
+  return { title, desc, sentences: sentences.slice(0, 30), topWords, fullLen: text.length };
+}
+function renderScraperResult(p, url) {
+  const out = $("#scraper-output");
+  out.innerHTML = `
+    <div class="card">
+      <h2>요약</h2>
+      <div style="font-size:16px; font-weight:600; margin-bottom:6px;">${escapeHtml(p.title)}</div>
+      <div style="color:var(--text-dim); font-size:13px; margin-bottom:8px;">${escapeHtml(url)}</div>
+      ${p.desc ? `<div style="color:var(--text-dim); font-size:14px; line-height:1.6;">${escapeHtml(p.desc)}</div>` : ""}
+      <div style="margin-top:12px; font-size:12px; color:var(--text-dim);">총 ${p.fullLen.toLocaleString()}자 · 문장 ${p.sentences.length}개 · 주요 단어 ${p.topWords.length}개</div>
+    </div>
+    <div class="card">
+      <div class="extract-tabs">
+        <button class="active" data-tab="vocab">📚 핵심 단어</button>
+        <button data-tab="sent">📝 문장 추출</button>
+      </div>
+      <div class="extract-pane active" data-pane="vocab">
+        <ul class="vocab-list" id="scraped-vocab"></ul>
+      </div>
+      <div class="extract-pane" data-pane="sent">
+        <div id="scraped-sent"></div>
+      </div>
+    </div>
+  `;
+  // tabs
+  out.querySelectorAll(".extract-tabs button").forEach(b => b.addEventListener("click", () => {
+    out.querySelectorAll(".extract-tabs button").forEach(x => x.classList.toggle("active", x === b));
+    out.querySelectorAll(".extract-pane").forEach(x => x.classList.toggle("active", x.dataset.pane === b.dataset.tab));
+  }));
+  // vocab list
+  const vu = out.querySelector("#scraped-vocab");
+  p.topWords.forEach(([w, c]) => {
+    const li = document.createElement("li");
+    li.innerHTML = `<div><strong>${w}</strong></div>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <span class="badge">${c}회</span>
+        <button class="btn btn-ghost" style="padding:4px 8px;">+ 단어장</button>
+      </div>`;
+    li.querySelector("button").addEventListener("click", () => addVocab(w, p.title));
+    vu.appendChild(li);
+  });
+  // sentences
+  const su = out.querySelector("#scraped-sent");
+  if (!p.sentences.length) su.innerHTML = '<div class="empty">추출된 문장이 없습니다.</div>';
+  p.sentences.forEach((s, i) => {
+    const div = document.createElement("div");
+    div.className = "sentence-item";
+    div.innerHTML = `<span class="num">${i + 1}.</span>${escapeHtml(s)}`;
+    su.appendChild(div);
+  });
+}
+function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+
+// ---------- Settings ----------
+$("#btn-export").addEventListener("click", () => {
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `english-lab-${todayKey()}.json`;
+  a.click();
+  toast("내보냈습니다.");
+});
+$("#btn-import").addEventListener("click", () => {
+  const inp = document.createElement("input"); inp.type = "file"; inp.accept = "application/json";
+  inp.onchange = async () => {
+    try {
+      const text = await inp.files[0].text();
+      state = { ...defaultState, ...JSON.parse(text) }; saveState();
+      toast("가져왔습니다."); renderDashboard();
+    } catch (e) { toast("실패: " + e.message); }
+  };
+  inp.click();
+});
+$("#btn-reset").addEventListener("click", () => {
+  if (!confirm("모든 데이터를 초기화하시겠습니까?")) return;
+  state = { ...defaultState }; saveState(); toast("초기화됨"); renderDashboard();
+});
+$("#proxy-url").addEventListener("change", (e) => { state.proxy = e.target.value || DEFAULT_PROXY; saveState(); toast("프록시 저장됨"); });
+
+// ---------- Init ----------
+renderDashboard();
+</script>
+</body>
+</html>
