@@ -1098,7 +1098,7 @@ function parseGenericMarkdown(md) {
     const m = body.match(re);
     if (m && m.index !== undefined) { body = body.slice(0, m.index); break; }
   }
-  const skipRe = /^(Source|Share|Subscribe|Copyright|©|Posted|Tags?:|Categor|All\s*Business|Business\s*&\s*Politics|Science\s*&\s*Technology|Health\s*&\s*Lifestyle|Culture\s*&\s*Society|Travel\s*&\s*Experiences|Sign\s*up|Log\s*in|Daily\s*News)/i;
+  const skipRe = /^(Source|Share|Subscribe|Copyright|©|Posted|Tags?:|Categor|All\s*Business|Business\s*&\s*Politics|Science\s*&\s*Technology|Health\s*&\s*Lifestyle|Culture\s*&\s*Society|Travel\s*&\s*Experiences|Sign\s*up|Log\s*in|Daily\s*News|Warning:\s*This page)/i;
   // Detect concatenated category navigation like "AllBusiness & PoliticsScience & Technology..."
   const navRe = /[a-z][A-Z]/;
   const paras = body.split(/\n\s*\n+/).map(p => p.replace(/\s+/g, " ").trim())
@@ -1114,11 +1114,48 @@ function parseGenericMarkdown(md) {
   return { title: title || "Untitled Article", paragraphs: paras.slice(0, 60) };
 }
 
+async function fetchArticleMarkdown(url, status) {
+  // Strategy 1: Jina with browser engine + wait for article body
+  const tryJina = async (engine) => {
+    const headers = {
+      "Accept": "text/plain",
+      "X-Engine": engine,
+      "X-Timeout": "30",
+      "X-No-Cache": "true",
+      "X-Retain-Images": "none"
+    };
+    if (engine === "browser") headers["X-Wait-For-Selector"] = "article, .daily-news-article, main";
+    const res = await fetch(JINA_PREFIX + url, { headers });
+    return await res.text();
+  };
+  const isWarning = (md) => /Warning: This page may(be)? not yet fully loaded|requiring CAPTCHA|page maybe requiring/i.test(md.slice(0, 500));
+
+  status.textContent = "📥 본문 다운로드 중… (browser engine)";
+  let md = await tryJina("browser");
+  if (isWarning(md) || md.length < 400) {
+    status.textContent = "📥 재시도 중… (direct)";
+    md = await tryJina("direct");
+  }
+  if (isWarning(md) || md.length < 400) {
+    status.textContent = "📥 프록시 폴백 중…";
+    const proxied = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+    const html = await (await fetch(proxied)).text();
+    // crude HTML→text
+    md = html.replace(/<script[\s\S]*?<\/script>/gi, "")
+             .replace(/<style[\s\S]*?<\/style>/gi, "")
+             .replace(/<[^>]+>/g, "\n")
+             .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&")
+             .replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+  }
+  if (isWarning(md)) throw new Error("Jina가 페이지를 완전히 로드하지 못했습니다 (CAPTCHA 또는 타임아웃). 잠시 후 다시 시도하세요.");
+  return md;
+}
+
 async function addArticleFromUrl(url) {
   const status = $("#dash-article-status");
   status.textContent = "📥 본문 다운로드 중…"; status.style.color = "var(--text-dim)";
   try {
-    const md = await (await fetch(JINA_PREFIX + url, { headers: { "Accept": "text/plain" } })).text();
+    const md = await fetchArticleMarkdown(url, status);
     const parsed = parseGenericMarkdown(md);
     if (!parsed.paragraphs.length) throw new Error("본문을 찾지 못했습니다.");
     status.textContent = `🌐 ${parsed.paragraphs.length}개 단락 한글 번역 중…`;
