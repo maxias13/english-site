@@ -908,19 +908,59 @@ function renderVocab() {
   });
 }
 
+function sanitizeForTranslate(text) {
+  if (!text) return "";
+  let t = String(text);
+  // Engoo {{prn:word|reading}} -> word
+  t = t.replace(/\{\{\s*prn\s*:\s*([^|}]+)\s*\|[^}]*\}\}/gi, "$1");
+  // Engoo {{...|word}} or {{word}} fallback -> word/last segment
+  t = t.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (_, inner) => {
+    const parts = inner.split("|").map(s => s.trim()).filter(Boolean);
+    return parts[0] || "";
+  });
+  // Markdown emphasis _word_ **word** *word* `word` -> word
+  t = t.replace(/\*\*([^*]+)\*\*/g, "$1")
+       .replace(/(^|[\s(])_([^_\n]+)_(?=[\s.,!?;:)\]]|$)/g, "$1$2")
+       .replace(/(^|[\s(])\*([^*\n]+)\*(?=[\s.,!?;:)\]]|$)/g, "$1$2")
+       .replace(/`([^`]+)`/g, "$1");
+  // Collapse whitespace
+  t = t.replace(/\s+/g, " ").trim();
+  return t;
+}
+
+async function _gtxDirect(text) {
+  const url = TRANSLATE_API + encodeURIComponent(text);
+  const res = await fetch(url, { method: "GET" });
+  if (!res.ok) throw new Error("gtx " + res.status);
+  const data = await res.json();
+  if (Array.isArray(data) && Array.isArray(data[0])) {
+    return data[0].map(seg => seg[0]).filter(Boolean).join("").trim();
+  }
+  return "";
+}
+async function _gtxProxy(text) {
+  const url = TRANSLATE_API + encodeURIComponent(text);
+  const res = await fetch((state.proxy || DEFAULT_PROXY) + encodeURIComponent(url));
+  const data = await res.json();
+  let payload = data.contents || "";
+  try { payload = JSON.parse(payload); } catch {}
+  if (Array.isArray(payload) && Array.isArray(payload[0])) {
+    return payload[0].map(seg => seg[0]).filter(Boolean).join("").trim();
+  }
+  return "";
+}
 async function translateText(text) {
-  if (!text || !text.trim()) return "";
-  try {
-    const url = TRANSLATE_API + encodeURIComponent(text);
-    const res = await fetch((state.proxy || DEFAULT_PROXY) + encodeURIComponent(url));
-    const data = await res.json();
-    let payload = data.contents || "";
-    try { payload = JSON.parse(payload); } catch {}
-    if (Array.isArray(payload) && Array.isArray(payload[0])) {
-      return payload[0].map(seg => seg[0]).filter(Boolean).join("");
-    }
-    return "";
-  } catch (e) { return ""; }
+  const clean = sanitizeForTranslate(text);
+  if (!clean) return "";
+  // Try direct gtx (CORS-enabled), then proxy, then proxy-retry once
+  for (const fn of [_gtxDirect, _gtxProxy, _gtxProxy]) {
+    try {
+      const out = await fn(clean);
+      if (out) return out;
+    } catch (e) { /* try next */ }
+    await new Promise(r => setTimeout(r, 150));
+  }
+  return "";
 }
 
 async function fetchEngooMarkdown(url) {
@@ -974,7 +1014,8 @@ function parseEngooLessonJson(json) {
     const pd = deref(p);
     const sents = (pd.paragraph_sentences || []).map(deref);
     const text = sents.map(s => deref(s.text)?.text || "").filter(Boolean).join(" ").trim();
-    if (text) paragraphs.push(text);
+    const clean = sanitizeForTranslate(text);
+    if (clean) paragraphs.push(clean);
   }
   // Vocab from VocabSection
   const vocab = [];
