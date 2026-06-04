@@ -295,6 +295,7 @@
     My English Lab
     <small id="brand-user">Personal study workspace</small>
   </div>
+  <div id="auth-box" style="padding:0 14px 12px; border-bottom:1px solid var(--border); margin-bottom:10px;"></div>
   <nav id="nav">
     <button data-page="dashboard" class="active"><span class="icon">📊</span>대시보드</button>
   </nav>
@@ -309,8 +310,8 @@
     <p class="subtitle">오늘도 한 걸음씩 — <span id="today-date"></span></p>
 
     <div class="card" style="margin-bottom:18px;">
-      <h2>🎯 Engoo Daily News — 랜덤 학습</h2>
-      <p style="color:var(--text-dim); font-size:13px; margin:4px 0 12px;">카테고리와 레벨을 선택하면 <a href="https://engoo.com/app/daily-news" target="_blank" rel="noopener" style="color:var(--accent);">engoo.com/app/daily-news</a>에서 조건에 맞는 기사 중 하나를 무작위로 가져와 좌측에 영어 원문, 우측에 자연스러운 한글 번역으로 분석합니다.</p>
+      <h2>🎯 Engoo Daily News — 최신 학습</h2>
+      <p style="color:var(--text-dim); font-size:13px; margin:4px 0 12px;">카테고리와 레벨을 선택하면 <a href="https://engoo.com/app/daily-news" target="_blank" rel="noopener" style="color:var(--accent);">engoo.com/app/daily-news</a>에서 조건에 맞는 가장 최근 기사를 가져와 좌측에 영어 원문, 우측에 자연스러운 한글 번역으로 분석합니다.</p>
       <div style="display:grid; grid-template-columns: 2fr 1fr auto; gap:10px; align-items:end;">
         <div>
           <label style="display:block; font-size:12px; color:var(--text-dim); margin-bottom:4px;">카테고리</label>
@@ -330,7 +331,7 @@
             <option value="10">Lv 10 — Proficient+</option>
           </select>
         </div>
-        <button class="btn" id="btn-pick-random" style="white-space:nowrap;">🎲 랜덤 분석</button>
+        <button class="btn" id="btn-pick-random" style="white-space:nowrap;">📰 최신 분석</button>
       </div>
       <div id="dash-article-status" style="margin-top:10px; font-size:13px; color:var(--text-dim);"></div>
     </div>
@@ -338,22 +339,6 @@
     <div class="card" style="margin-top:18px;">
       <h2>📅 출석 달력 <span style="color:var(--text-dim); font-size:13px; font-weight:400;">— URL 추가일이 출석으로 기록됩니다</span></h2>
       <div id="attendance-calendar" class="cal-wrap"></div>
-    </div>
-
-    <div class="grid grid-charts">
-      <div class="card">
-        <h2>최근 30일 학습 활동</h2>
-        <div id="chart-activity"></div>
-      </div>
-      <div class="card">
-        <h2>독해 진행도</h2>
-        <div id="chart-donut"></div>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>최근 7일 단어 추가</h2>
-      <div id="chart-vocab"></div>
     </div>
   </section>
 
@@ -527,12 +512,45 @@ function calcStreak() {
 
 function renderDashboard() {
   $("#today-date").textContent = new Date().toLocaleDateString("ko-KR", { year:"numeric", month:"long", day:"numeric", weekday:"long" });
-  drawActivityChart();
-  drawDonutChart();
-  drawVocabChart();
+  renderAttendanceCalendar();
+  renderAuthBox();
 }
 
-function drawActivityChart() {
+function renderAuthBox() {
+  const box = $("#auth-box"); if (!box) return;
+  const u = state.user;
+  if (u) {
+    box.innerHTML = `
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+        <div style="font-size:12px; line-height:1.3;">
+          <div style="font-weight:700;">👤 ${escapeHtml(u.name)}</div>
+          <div style="color:var(--text-dim); font-size:11px;">${escapeHtml(u.email)}</div>
+        </div>
+        <button class="btn" id="btn-logout" style="padding:4px 10px; font-size:11px;">로그아웃</button>
+      </div>`;
+    $("#brand-user").textContent = `Hi, ${u.name}`;
+    $("#btn-logout").onclick = () => { state.user = null; saveState(); renderAuthBox(); renderArticleNav(); };
+  } else {
+    box.innerHTML = `
+      <form id="login-form" style="display:flex; flex-direction:column; gap:6px;">
+        <div style="font-size:11px; color:var(--text-dim);">로그인 (선택) — 내 학습 기록 분리</div>
+        <input id="login-name" placeholder="이름" required style="padding:6px 8px; font-size:12px; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:var(--text);">
+        <input id="login-email" placeholder="이메일" type="email" required style="padding:6px 8px; font-size:12px; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:var(--text);">
+        <button class="btn" type="submit" style="padding:6px; font-size:12px;">로그인</button>
+      </form>`;
+    $("#brand-user").textContent = "Personal study workspace";
+    $("#login-form").onsubmit = (e) => {
+      e.preventDefault();
+      const name = $("#login-name").value.trim();
+      const email = $("#login-email").value.trim();
+      if (!name || !email) return;
+      state.user = { name, email };
+      saveState(); renderAuthBox(); renderArticleNav();
+    };
+  }
+}
+
+function _deadDrawActivityChart() {
   const days = 30;
   const data = [];
   for (let i = days-1; i >= 0; i--) {
@@ -1107,11 +1125,12 @@ async function addArticleFromUrl(url) {
     const translations = [];
     for (const p of parsed.paragraphs) { translations.push(await translateText(p)); }
     const article = { id: "a_" + Date.now().toString(36), url, title: parsed.title,
-                      paragraphs: parsed.paragraphs, translations, savedAt: new Date().toISOString() };
+                      paragraphs: parsed.paragraphs, translations, savedAt: new Date().toISOString(),
+                      userEmail: state.user?.email || null };
     state.articles.unshift(article); saveState(); renderArticleNav();
     state.attendance = state.attendance || {}; state.attendance[todayKey()] = true; saveState();
     status.textContent = `✅ 추가 완료: ${parsed.title}`; status.style.color = "var(--accent)";
-    $("#dash-article-url").value = ""; openArticle(article.id);
+    openArticle(article.id);
   } catch (e) {
     status.textContent = "❌ 실패: " + e.message; status.style.color = "var(--accent-2)";
   }
@@ -1119,8 +1138,11 @@ async function addArticleFromUrl(url) {
 
 function renderArticleNav() {
   const nav = $("#nav-articles");
-  if (!state.articles || !state.articles.length) { nav.innerHTML = `<div style="padding:8px 12px; font-size:12px; color:var(--text-dim);">없음</div>`; return; }
-  nav.innerHTML = state.articles.map(a => `
+  const list = state.user
+    ? state.articles.filter(a => a.userEmail === state.user.email)
+    : state.articles.filter(a => !a.userEmail);
+  if (!list.length) { nav.innerHTML = `<div style="padding:8px 12px; font-size:12px; color:var(--text-dim);">없음</div>`; return; }
+  nav.innerHTML = list.map(a => `
     <button data-article="${a.id}" title="${escapeHtml(a.url)}">
       <span class="icon">📄</span><span>${escapeHtml(a.title.length > 24 ? a.title.slice(0,24)+"…" : a.title)}</span>
       <span class="article-del" data-del="${a.id}">✕</span>
@@ -1212,11 +1234,11 @@ async function pickRandomEngooArticle(slug, level) {
       if (new RegExp(`Level\\s*${level}\\b`).test(ctx)) m.forEach(u => filtered.add(u));
     }
     if (filtered.size) urls = [...filtered];
-    else status.textContent = `⚠️ 레벨 ${level} 기사를 찾지 못해 전체에서 무작위 선택합니다... `;
+    else status.textContent = `⚠️ 레벨 ${level} 기사를 찾지 못해 전체에서 최신 기사를 선택합니다... `;
   }
 
-  const pick = urls[Math.floor(Math.random() * urls.length)];
-  status.textContent = `🎯 선정: ${pick}`;
+  const pick = urls[0];
+  status.textContent = `🎯 최신 기사: ${pick}`;
   await addArticleFromUrl(pick);
 }
 
