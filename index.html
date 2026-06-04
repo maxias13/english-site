@@ -1529,12 +1529,87 @@ function deleteArticle(id) {
   }
 }
 
+function isArticleStale(a) {
+  if (!a) return false;
+  const isEngoo = /engoo\.com\/app\/daily-news/i.test(a.url || "");
+  if (!a.title || a.title === "Untitled Article") return true;
+  if (!a.titleKo) return true;
+  if (isEngoo && !a.audioUrl) return true;
+  if (!a.translations || a.translations.length !== (a.paragraphs || []).length) return true;
+  if ((a.translations || []).some(t => !t || t === "(번역 없음)")) return true;
+  return false;
+}
+
+async function refreshStaleArticle(a) {
+  const out = $("#article-output");
+  if (out) out.innerHTML = `<div style="padding:24px; color:var(--text-dim);">🔄 저장된 article을 최신 형식으로 갱신 중… (제목/번역/음성 보강)</div>`;
+  try {
+    const isEngoo = /engoo\.com\/app\/daily-news/i.test(a.url || "");
+    const lessonId = isEngoo ? engooUrlToLessonId(a.url) : null;
+    let parsed = null;
+    let extras = { audioInfo: a.audioInfo || "", audioUrl: a.audioUrl || "", vocab: [], questions: [], discussion: [], further: [] };
+    if (lessonId) {
+      try {
+        const json = await fetchEngooLessonJson(lessonId);
+        const eng = parseEngooLessonJson(json);
+        if (eng.paragraphs && eng.paragraphs.length) {
+          parsed = { title: eng.title || a.title || "Untitled Article", paragraphs: eng.paragraphs };
+          extras.audioUrl = eng.audioUrl || extras.audioUrl;
+          extras.vocab = eng.vocab || [];
+          extras.questions = eng.questions || [];
+          extras.discussion = eng.discussion || [];
+          extras.further = eng.further || [];
+        }
+      } catch(_) {}
+    }
+    if (!parsed) {
+      // fallback: keep existing paragraphs, just retranslate
+      parsed = { title: a.title || "Untitled Article", paragraphs: (a.paragraphs || []).map(p => sanitizeForTranslate(p)) };
+    }
+    if (parsed.title) parsed.title = parsed.title.replace(/\s*\|\s*Engoo Daily News\s*$/i, "").trim();
+    const titleKo = await translateText(parsed.title);
+    const translations = [];
+    for (const p of parsed.paragraphs) translations.push(await translateText(p));
+    const vocabTr = [];
+    for (const v of (extras.vocab.length ? extras.vocab : (a.vocab || []))) vocabTr.push(await translateText(v.def || ""));
+    const questionsTr = [];
+    for (const q of (extras.questions.length ? extras.questions : (a.questions || []))) questionsTr.push(await translateText(q));
+    const discussionTr = [];
+    for (const q of (extras.discussion.length ? extras.discussion : (a.discussion || []))) discussionTr.push(await translateText(q));
+    const furtherTr = [];
+    for (const q of (extras.further.length ? extras.further : (a.further || []))) furtherTr.push(await translateText(q));
+    a.title = parsed.title;
+    a.titleKo = titleKo;
+    a.paragraphs = parsed.paragraphs;
+    a.translations = translations;
+    a.audioUrl = extras.audioUrl;
+    a.audioInfo = extras.audioInfo;
+    if (extras.vocab.length) { a.vocab = extras.vocab; a.vocabTr = vocabTr; }
+    else if (a.vocab) a.vocabTr = vocabTr;
+    if (extras.questions.length) { a.questions = extras.questions; a.questionsTr = questionsTr; }
+    else if (a.questions) a.questionsTr = questionsTr;
+    if (extras.discussion.length) { a.discussion = extras.discussion; a.discussionTr = discussionTr; }
+    else if (a.discussion) a.discussionTr = discussionTr;
+    if (extras.further.length) { a.further = extras.further; a.furtherTr = furtherTr; }
+    else if (a.further) a.furtherTr = furtherTr;
+    a.refreshedAt = new Date().toISOString();
+    saveState();
+    renderArticleNav();
+  } catch (e) {
+    console.warn("Article refresh failed:", e);
+  }
+}
+
 function openArticle(id) {
   const a = state.articles.find(x => x.id === id); if (!a) return;
   $$("nav button").forEach(x => x.classList.remove("active"));
   $$("#nav-articles button").forEach(b => b.classList.toggle("active", b.dataset.article === id));
   $$(".page").forEach(p => p.classList.toggle("active", p.id === "page-article"));
-  renderArticle(a);
+  if (isArticleStale(a)) {
+    refreshStaleArticle(a).then(() => { renderArticle(a); });
+  } else {
+    renderArticle(a);
+  }
   recordArticleStudy(a.id, a.title, a.url);
 }
 
