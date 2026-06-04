@@ -266,7 +266,7 @@
   }
   .qa-item:last-child { border-bottom: none; }
   .qa-en { color: var(--text); }
-  .qa-ko { color: var(--text-dim); margin-top: 4px; font-size: 13.5px; }
+  .qa-ko { color: #7dd3fc; margin-top: 4px; font-size: 13.5px; }
 
   .cal-wrap { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 8px; }
   @media (max-width: 1100px) { .cal-wrap { grid-template-columns: 1fr; } }
@@ -1543,7 +1543,7 @@ function renderArticle(a) {
   const rows = a.paragraphs.map((p, i) => `
     <div class="bilingual" style="margin-bottom: 14px;">
       <div class="col"><p>${escapeHtml(p)}</p></div>
-      <div class="col"><p>${escapeHtml(a.translations[i] || "(번역 없음)")}</p></div>
+      <div class="col"><p style="color:#7dd3fc;">${escapeHtml(a.translations[i] || "(번역 없음)")}</p></div>
     </div>`).join("");
   const vocab = a.vocab || [], vocabTr = a.vocabTr || [];
   const vocabHtml = vocab.length ? `
@@ -1558,7 +1558,7 @@ function renderArticle(a) {
             </div>
             <div style="font-size:12px; color:var(--text-dim); margin:2px 0;">${escapeHtml(v.ipa||"")}</div>
             <div style="font-size:13px; margin-top:4px;">${escapeHtml(v.def)}</div>
-            ${vocabTr[i] ? `<div style="font-size:13px; color:var(--accent); margin-top:4px;">↳ ${escapeHtml(vocabTr[i])}</div>` : ""}
+            ${vocabTr[i] ? `<div style="font-size:13px; color:#7dd3fc; margin-top:4px;">↳ ${escapeHtml(vocabTr[i])}</div>` : ""}
           </div>`).join("")}
       </div>
     </div>` : "";
@@ -1569,14 +1569,14 @@ function renderArticle(a) {
         ${en.map((q,i) => `
           <li style="margin-bottom:10px;">
             <div>${escapeHtml(q)}</div>
-            ${(ko && ko[i]) ? `<div style="color:var(--accent); font-size:13px; margin-top:2px;">↳ ${escapeHtml(ko[i])}</div>` : ""}
+            ${(ko && ko[i]) ? `<div style="color:#7dd3fc; font-size:13px; margin-top:2px;">↳ ${escapeHtml(ko[i])}</div>` : ""}
           </li>`).join("")}
       </ol>
     </div>` : "";
   out.innerHTML = `
     <div class="card">
       <h2 style="margin:0 0 6px;">${escapeHtml(a.title)}</h2>
-      ${a.titleKo ? `<div style="font-size:16px; color:var(--accent); margin:0 0 8px;">${escapeHtml(a.titleKo)}</div>` : ""}
+      ${a.titleKo ? `<div style="font-size:16px; color:#7dd3fc; margin:0 0 8px;">${escapeHtml(a.titleKo)}</div>` : ""}
       <p style="color:var(--text-dim); font-size:13px; margin:0 0 12px;">
         <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener" style="color:var(--accent);">원문 열기 ↗</a>
         · ${a.paragraphs.length} paragraphs · 저장: ${new Date(a.savedAt).toLocaleString()}
