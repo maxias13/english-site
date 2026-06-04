@@ -454,7 +454,7 @@ const STORE_KEY = "english_lab_v1";
 const defaultState = {
   vocab: [], passagesRead: [], activity: {}, attendance: {},
   proxy: DEFAULT_PROXY, sessionStart: null,
-  theme: "light", vocabHistory: {}, articles: [], user: null
+  theme: "light", vocabHistory: {}, articles: [], user: null, users: {}
 };
 function loadState() {
   try { const s = JSON.parse(localStorage.getItem(STORE_KEY) || "null"); return { ...defaultState, ...(s || {}) }; }
@@ -516,38 +516,80 @@ function renderDashboard() {
   renderAuthBox();
 }
 
+async function hashPassword(pw) {
+  const buf = new TextEncoder().encode(pw + "::english_lab_salt_v1");
+  const h = await crypto.subtle.digest("SHA-256", buf);
+  return Array.from(new Uint8Array(h)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+let _authMode = "login"; // "login" | "signup"
+
 function renderAuthBox() {
   const box = $("#auth-box"); if (!box) return;
+  if (!state.users) state.users = {};
   const u = state.user;
   if (u) {
     box.innerHTML = `
       <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
         <div style="font-size:12px; line-height:1.3;">
-          <div style="font-weight:700;">👤 ${escapeHtml(u.name)}</div>
-          <div style="color:var(--text-dim); font-size:11px;">${escapeHtml(u.email)}</div>
+          <div style="font-weight:700;">👤 ${escapeHtml(u.id)}</div>
+          <div style="color:var(--text-dim); font-size:11px;">${escapeHtml(u.email || "")}</div>
         </div>
         <button class="btn" id="btn-logout" style="padding:4px 10px; font-size:11px;">로그아웃</button>
       </div>`;
-    $("#brand-user").textContent = `Hi, ${u.name}`;
+    $("#brand-user").textContent = `Hi, ${u.id}`;
     $("#btn-logout").onclick = () => { state.user = null; saveState(); renderAuthBox(); renderArticleNav(); };
+    return;
+  }
+
+  $("#brand-user").textContent = "Personal study workspace";
+  const inputStyle = "padding:6px 8px; font-size:12px; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:var(--text);";
+  const tabBtn = (mode, label) => `<button type="button" data-mode="${mode}" style="flex:1; padding:5px; font-size:11px; border:none; border-radius:6px; cursor:pointer; background:${_authMode===mode?'var(--accent)':'transparent'}; color:${_authMode===mode?'white':'var(--text-dim)'}; font-weight:${_authMode===mode?'700':'400'};">${label}</button>`;
+
+  if (_authMode === "login") {
+    box.innerHTML = `
+      <div style="display:flex; gap:4px; margin-bottom:6px;">${tabBtn("login","로그인")}${tabBtn("signup","회원가입")}</div>
+      <form id="auth-form" style="display:flex; flex-direction:column; gap:6px;">
+        <input id="auth-id" placeholder="아이디" required style="${inputStyle}">
+        <input id="auth-pw" placeholder="암호" type="password" required style="${inputStyle}">
+        <button class="btn" type="submit" style="padding:6px; font-size:12px;">로그인</button>
+        <div id="auth-msg" style="font-size:11px; color:#ef4444; min-height:14px;"></div>
+      </form>`;
   } else {
     box.innerHTML = `
-      <form id="login-form" style="display:flex; flex-direction:column; gap:6px;">
-        <div style="font-size:11px; color:var(--text-dim);">로그인 (선택) — 내 학습 기록 분리</div>
-        <input id="login-name" placeholder="이름" required style="padding:6px 8px; font-size:12px; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:var(--text);">
-        <input id="login-email" placeholder="이메일" type="email" required style="padding:6px 8px; font-size:12px; border-radius:6px; border:1px solid var(--border); background:var(--bg); color:var(--text);">
-        <button class="btn" type="submit" style="padding:6px; font-size:12px;">로그인</button>
+      <div style="display:flex; gap:4px; margin-bottom:6px;">${tabBtn("login","로그인")}${tabBtn("signup","회원가입")}</div>
+      <form id="auth-form" style="display:flex; flex-direction:column; gap:6px;">
+        <input id="auth-id" placeholder="아이디" required minlength="2" style="${inputStyle}">
+        <input id="auth-email" placeholder="이메일" type="email" required style="${inputStyle}">
+        <input id="auth-pw" placeholder="암호 (최소 4자)" type="password" required minlength="4" style="${inputStyle}">
+        <button class="btn" type="submit" style="padding:6px; font-size:12px;">회원가입</button>
+        <div id="auth-msg" style="font-size:11px; color:#ef4444; min-height:14px;"></div>
       </form>`;
-    $("#brand-user").textContent = "Personal study workspace";
-    $("#login-form").onsubmit = (e) => {
-      e.preventDefault();
-      const name = $("#login-name").value.trim();
-      const email = $("#login-email").value.trim();
-      if (!name || !email) return;
-      state.user = { name, email };
-      saveState(); renderAuthBox(); renderArticleNav();
-    };
   }
+
+  box.querySelectorAll("[data-mode]").forEach(b => b.onclick = () => { _authMode = b.dataset.mode; renderAuthBox(); });
+
+  $("#auth-form").onsubmit = async (e) => {
+    e.preventDefault();
+    const msg = $("#auth-msg"); msg.textContent = "";
+    const id = $("#auth-id").value.trim();
+    const pw = $("#auth-pw").value;
+    const passHash = await hashPassword(pw);
+    if (_authMode === "signup") {
+      const email = $("#auth-email").value.trim();
+      if (state.users[id]) { msg.textContent = "이미 존재하는 아이디입니다."; return; }
+      state.users[id] = { id, email, passHash, createdAt: new Date().toISOString() };
+      state.user = { id, email };
+      saveState(); renderAuthBox(); renderArticleNav();
+      toast(`✅ 가입 완료: ${id}`);
+    } else {
+      const rec = state.users[id];
+      if (!rec || rec.passHash !== passHash) { msg.textContent = "아이디 또는 암호가 올바르지 않습니다."; return; }
+      state.user = { id: rec.id, email: rec.email };
+      saveState(); renderAuthBox(); renderArticleNav();
+      toast(`👋 ${id} 로그인`);
+    }
+  };
 }
 
 function _deadDrawActivityChart() {
@@ -1163,7 +1205,7 @@ async function addArticleFromUrl(url) {
     for (const p of parsed.paragraphs) { translations.push(await translateText(p)); }
     const article = { id: "a_" + Date.now().toString(36), url, title: parsed.title,
                       paragraphs: parsed.paragraphs, translations, savedAt: new Date().toISOString(),
-                      userEmail: state.user?.email || null };
+                      userEmail: state.user?.email || null, userId: state.user?.id || null };
     state.articles.unshift(article); saveState(); renderArticleNav();
     state.attendance = state.attendance || {}; state.attendance[todayKey()] = true; saveState();
     status.textContent = `✅ 추가 완료: ${parsed.title}`; status.style.color = "var(--accent)";
@@ -1176,8 +1218,8 @@ async function addArticleFromUrl(url) {
 function renderArticleNav() {
   const nav = $("#nav-articles");
   const list = state.user
-    ? state.articles.filter(a => a.userEmail === state.user.email)
-    : state.articles.filter(a => !a.userEmail);
+    ? state.articles.filter(a => a.userId === state.user.id || (!a.userId && a.userEmail === state.user.email))
+    : state.articles.filter(a => !a.userId && !a.userEmail);
   if (!list.length) { nav.innerHTML = `<div style="padding:8px 12px; font-size:12px; color:var(--text-dim);">없음</div>`; return; }
   nav.innerHTML = list.map(a => `
     <button data-article="${a.id}" title="${escapeHtml(a.url)}">
