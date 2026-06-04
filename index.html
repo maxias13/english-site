@@ -929,6 +929,91 @@ async function fetchEngooMarkdown(url) {
   return await res.text();
 }
 
+const ENGOO_API_PROXY = "https://api.codetabs.com/v1/proxy?quest=";
+function engooTokenToLessonId(tok) {
+  try {
+    const b64 = tok.replace(/-/g, "+").replace(/_/g, "/") + "==";
+    const bytes = atob(b64);
+    let h = "";
+    for (let i = 0; i < bytes.length; i++) h += bytes.charCodeAt(i).toString(16).padStart(2, "0");
+    if (h.length < 32) return null;
+    return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20,32)}`;
+  } catch (e) { return null; }
+}
+function engooUrlToLessonId(url) {
+  const m = url.match(/\/article\/[^/]+\/([A-Za-z0-9_-]+)/);
+  return m ? engooTokenToLessonId(m[1]) : null;
+}
+async function fetchEngooLessonJson(lessonId) {
+  const api = `https://api.engoo.com/api/lessons/${lessonId}/current`;
+  const res = await fetch(ENGOO_API_PROXY + encodeURIComponent(api));
+  if (!res.ok) throw new Error("Engoo API 응답 실패: " + res.status);
+  return await res.json();
+}
+function parseEngooLessonJson(json) {
+  const data = json.data || {};
+  const refs = json.references || {};
+  const deref = (o) => (o && typeof o === "object" && o._ref && refs[o._ref]) ? refs[o._ref] : o;
+  const exs = (data.exercises || []).map(deref);
+  // Locate ArticleSection
+  let articleSec = null;
+  for (const e of exs) {
+    for (const s of (e.sections || [])) {
+      const sd = deref(s);
+      if (sd && sd._type === "ArticleSection") { articleSec = sd; break; }
+    }
+    if (articleSec) break;
+  }
+  if (!articleSec) throw new Error("ArticleSection을 찾지 못했습니다.");
+  const titleObj = deref(articleSec.title_text) || deref(data.title_text) || {};
+  const title = (titleObj.text || "").trim();
+  const audioObj = deref(articleSec.combined_audio) || {};
+  const audioUrl = audioObj.url || "";
+  const paragraphs = [];
+  for (const p of (articleSec.paragraphs || [])) {
+    const pd = deref(p);
+    const sents = (pd.paragraph_sentences || []).map(deref);
+    const text = sents.map(s => deref(s.text)?.text || "").filter(Boolean).join(" ").trim();
+    if (text) paragraphs.push(text);
+  }
+  // Vocab from VocabSection
+  const vocab = [];
+  for (const e of exs) {
+    for (const s of (e.sections || [])) {
+      const sd = deref(s);
+      if (sd && sd._type === "VocabSection") {
+        for (const w of (sd.vocab_section_words || [])) {
+          const wd = deref(w);
+          const word = deref(wd.word) || {};
+          if (word.word) vocab.push({
+            word: word.word,
+            pos: word.part_of_speech || "",
+            ipa: (word.pronunciations && word.pronunciations[0]) || "",
+            def: word.definition || ""
+          });
+        }
+      }
+    }
+  }
+  // Question sections (Ex 2 = Discussion, Ex 3 = Further Discussion)
+  const qSections = [];
+  for (const e of exs) {
+    for (const s of (e.sections || [])) {
+      const sd = deref(s);
+      if (sd && sd._type === "QuestionSection") {
+        const qs = (sd.questions || []).map(q => {
+          const qd = deref(q);
+          return (deref(qd.text)?.text || "").trim();
+        }).filter(Boolean);
+        if (qs.length) qSections.push(qs);
+      }
+    }
+  }
+  const discussion = qSections[0] || [];
+  const further = qSections[1] || [];
+  return { title, audioUrl, paragraphs, vocab, questions: [], discussion, further };
+}
+
 function parseEngooMarkdown(md) {
   const titleMatch = md.match(/^Title:\s*(.+)$/m);
   const title = (titleMatch ? titleMatch[1] : "").replace(/\s*\|\s*Engoo Daily News\s*$/, "").trim();
@@ -1299,31 +1384,56 @@ async function addArticleFromUrl(url) {
   const status = $("#dash-article-status");
   status.textContent = "📥 본문 다운로드 중…"; status.style.color = "var(--text-dim)";
   try {
-    const md = await fetchArticleMarkdown(url, status);
-    let parsed = parseGenericMarkdown(md);
-    // Extract Engoo extras (audio, vocab, quiz, discussion, further) when available
-    let extras = { audioInfo: "", vocab: [], questions: [], discussion: [], further: [] };
+    let parsed = null;
+    let extras = { audioInfo: "", audioUrl: "", vocab: [], questions: [], discussion: [], further: [] };
     const isEngoo = /engoo\.com\/app\/daily-news/i.test(url);
-    try {
-      const eng = parseEngooMarkdown(md);
-      extras.audioInfo = eng.audioInfo || "";
-      extras.vocab = eng.vocab || [];
-      extras.questions = eng.questions || [];
-      extras.discussion = eng.discussion || [];
-      extras.further = eng.further || [];
-      // For Engoo: prefer Engoo-specific paragraphs (generic parser cuts at "Vocabulary")
-      if (isEngoo && eng.paragraphs && eng.paragraphs.length) {
-        parsed = { title: eng.title || parsed.title, paragraphs: eng.paragraphs };
+    const lessonId = isEngoo ? engooUrlToLessonId(url) : null;
+
+    // Strategy 1: Engoo official JSON API (preferred — gives real audio + clean structure)
+    if (lessonId) {
+      try {
+        status.textContent = "📡 Engoo API 호출 중…";
+        const json = await fetchEngooLessonJson(lessonId);
+        const eng = parseEngooLessonJson(json);
+        if (eng.paragraphs && eng.paragraphs.length) {
+          parsed = { title: eng.title || "Untitled Article", paragraphs: eng.paragraphs };
+          extras.audioUrl = eng.audioUrl || "";
+          extras.vocab = eng.vocab || [];
+          extras.questions = eng.questions || [];
+          extras.discussion = eng.discussion || [];
+          extras.further = eng.further || [];
+        }
+      } catch (e) {
+        status.textContent = "⚠️ Engoo API 실패, 마크다운 폴백 중… (" + e.message + ")";
       }
-    } catch(_) {}
-    // Clean Engoo title suffix
+    }
+
+    // Strategy 2: Markdown fallback (Jina Reader)
+    if (!parsed) {
+      const md = await fetchArticleMarkdown(url, status);
+      parsed = parseGenericMarkdown(md);
+      try {
+        const eng = parseEngooMarkdown(md);
+        extras.audioInfo = eng.audioInfo || "";
+        if (!extras.vocab.length) extras.vocab = eng.vocab || [];
+        if (!extras.questions.length) extras.questions = eng.questions || [];
+        if (!extras.discussion.length) extras.discussion = eng.discussion || [];
+        if (!extras.further.length) extras.further = eng.further || [];
+        if (isEngoo && eng.paragraphs && eng.paragraphs.length) {
+          parsed = { title: eng.title || parsed.title, paragraphs: eng.paragraphs };
+        }
+      } catch(_) {}
+      if (!extras.audioInfo) {
+        const am = md.match(/AI Generated Audio\s+([\d:]+)\s*\/\s*([\d:]+)/);
+        if (am) extras.audioInfo = `${am[1]} / ${am[2]}`;
+      }
+    }
+
     if (parsed.title) parsed.title = parsed.title.replace(/\s*\|\s*Engoo Daily News\s*$/i, "").trim();
     if (!parsed.paragraphs.length) throw new Error("본문을 찾지 못했습니다.");
-    if (!extras.audioInfo) {
-      const am = md.match(/AI Generated Audio\s+([\d:]+)\s*\/\s*([\d:]+)/);
-      if (am) extras.audioInfo = `${am[1]} / ${am[2]}`;
-    }
-    status.textContent = `🌐 ${parsed.paragraphs.length}개 단락 한글 번역 중…`;
+
+    status.textContent = `🌐 제목 + ${parsed.paragraphs.length}개 단락 한글 번역 중…`;
+    const titleKo = await translateText(parsed.title);
     const translations = [];
     for (const p of parsed.paragraphs) { translations.push(await translateText(p)); }
     const vocabTr = [];
@@ -1334,9 +1444,9 @@ async function addArticleFromUrl(url) {
     for (const q of extras.discussion) { discussionTr.push(await translateText(q)); }
     const furtherTr = [];
     for (const q of extras.further) { furtherTr.push(await translateText(q)); }
-    const article = { id: "a_" + Date.now().toString(36), url, title: parsed.title,
+    const article = { id: "a_" + Date.now().toString(36), url, title: parsed.title, titleKo,
                       paragraphs: parsed.paragraphs, translations, savedAt: new Date().toISOString(),
-                      audioInfo: extras.audioInfo,
+                      audioInfo: extras.audioInfo, audioUrl: extras.audioUrl,
                       vocab: extras.vocab, vocabTr,
                       questions: extras.questions, questionsTr,
                       discussion: extras.discussion, discussionTr,
@@ -1425,12 +1535,18 @@ function renderArticle(a) {
   out.innerHTML = `
     <div class="card">
       <h2 style="margin:0 0 6px;">${escapeHtml(a.title)}</h2>
+      ${a.titleKo ? `<div style="font-size:16px; color:var(--accent); margin:0 0 8px;">${escapeHtml(a.titleKo)}</div>` : ""}
       <p style="color:var(--text-dim); font-size:13px; margin:0 0 12px;">
         <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener" style="color:var(--accent);">원문 열기 ↗</a>
         · ${a.paragraphs.length} paragraphs · 저장: ${new Date(a.savedAt).toLocaleString()}
       </p>
+      ${a.audioUrl ? `
+      <div id="article-audio-bar" style="margin:0 0 12px; padding:10px 12px; background:var(--surface-2); border-radius:8px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <span style="font-size:13px;">🔊 <strong>Engoo 원본 음성</strong></span>
+        <audio controls preload="metadata" src="${escapeHtml(a.audioUrl)}" style="flex:1; min-width:280px; height:36px;"></audio>
+      </div>` : `
       <div id="article-audio-bar" style="margin:0 0 12px; padding:10px 12px; background:var(--surface-2); border-radius:8px; font-size:13px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-        <span>🔊 <strong>음성 재생</strong>${a.audioInfo ? ` · <span style="color:var(--text-dim);">${escapeHtml(a.audioInfo)}</span>` : ""}</span>
+        <span>🔊 <strong>음성 재생 (TTS)</strong>${a.audioInfo ? ` · <span style="color:var(--text-dim);">${escapeHtml(a.audioInfo)}</span>` : ""}</span>
         <span style="display:inline-flex; gap:6px;">
           <button id="audio-play"  type="button" style="padding:6px 12px; border-radius:6px; border:1px solid var(--border); background:var(--accent); color:white; cursor:pointer;">▶ 재생</button>
           <button id="audio-pause" type="button" style="padding:6px 12px; border-radius:6px; border:1px solid var(--border); background:var(--surface); cursor:pointer;">⏸ 일시정지</button>
@@ -1441,7 +1557,7 @@ function renderArticle(a) {
           <span id="audio-rate-val">1.0x</span>
         </label>
         <span id="audio-status" style="font-size:12px; color:var(--text-dim);"></span>
-      </div>
+      </div>`}
       <div class="bilingual" style="margin-bottom: 10px;">
         <div class="col"><h3>🇺🇸 English</h3></div>
         <div class="col"><h3>🇰🇷 한국어</h3></div>
@@ -1453,7 +1569,7 @@ function renderArticle(a) {
     ${qList(a.discussion, a.discussionTr, "Discussion", "💬")}
     ${qList(a.further, a.furtherTr, "Further Discussion", "🗣️")}`;
   state.passagesRead = state.passagesRead || []; tickActivity();
-  setupAudioPlayer(a);
+  if (!a.audioUrl) setupAudioPlayer(a);
 }
 
 let _ttsUtter = null;
