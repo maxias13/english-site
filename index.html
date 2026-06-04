@@ -1649,7 +1649,7 @@ function renderArticle(a) {
             ${(ko && ko[i]) ? `<div style="color:#7dd3fc; font-size:13px; margin-top:2px;">↳ ${escapeHtml(ko[i])}</div>` : ""}
             <div style="margin-top:6px;">
               <button type="button" class="ans-btn" data-kind="${kind}" data-idx="${i}"
-                style="padding:4px 10px; font-size:12px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); cursor:pointer;">
+                style="padding:5px 12px; font-size:12px; border-radius:6px; border:1px solid #6366f1; background:linear-gradient(135deg,#6366f1,#a855f7); color:#fff; font-weight:600; cursor:pointer;">
                 💡 예제 답변 3개 ${cached ? "다시 생성" : "보기"}
               </button>
               <div class="ans-box" data-kind="${kind}" data-idx="${i}" style="margin-top:6px;">
