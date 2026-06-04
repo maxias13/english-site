@@ -1718,25 +1718,78 @@ function _llmEnqueue(fn) {
 }
 const _sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
+async function _llmTryGet(prompt, model) {
+  const url = "https://text.pollinations.ai/" + encodeURIComponent(prompt) + "?model=" + model + "&referrer=englishlab";
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  const text = (await res.text()).trim();
+  if (!text || text.length < 10) throw new Error("empty");
+  return text;
+}
+async function _llmTryPost(prompt, model) {
+  const res = await fetch("https://text.pollinations.ai/", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({messages:[{role:"user",content:prompt}], model, referrer:"englishlab"})
+  });
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  const text = (await res.text()).trim();
+  if (!text || text.length < 10) throw new Error("empty");
+  return text;
+}
+
 async function _llmCall(prompt) {
-  const models = ["mistral", "openai", "llama"];
-  const delays = [0, 2500, 6000, 12000];
+  const models = ["mistral", "openai", "llama", "qwen-coder"];
+  const delays = [0, 3000, 8000, 20000];
   let lastErr = null;
   for (const d of delays) {
     if (d) await _sleep(d);
     for (const m of models) {
-      try {
-        const url = "https://text.pollinations.ai/" + encodeURIComponent(prompt) + "?model=" + m;
-        const res = await fetch(url);
-        if (res.status === 429) { lastErr = new Error("HTTP 429"); continue; }
-        if (!res.ok) { lastErr = new Error("HTTP " + res.status); continue; }
-        const text = (await res.text()).trim();
-        if (text && text.length > 10) return text;
-        lastErr = new Error("empty response");
-      } catch (e) { lastErr = e; }
+      for (const fn of [_llmTryGet, _llmTryPost]) {
+        try { return await fn(prompt, m); }
+        catch (e) { lastErr = e; }
+      }
     }
   }
-  throw lastErr || new Error("LLM 모든 시도 실패");
+  throw lastErr || new Error("모든 LLM 시도 실패");
+}
+
+function _templateAnswers(question) {
+  const q = question.toLowerCase();
+  const topic = question.replace(/\?$/, "").replace(/^(do|does|is|are|was|were|what|why|how|when|where|who|which|if)\s+/i, "").trim();
+  if (/^(do|does|is|are|was|were|have|has|can|could|would|should|will)\b/i.test(question)) {
+    return [
+      `Yes, I think ${topic}. In my experience, this is something I care about quite a lot.`,
+      `Not really. To be honest, ${topic} is not very important to me personally.`,
+      `It depends on the situation. Sometimes ${topic}, but other times I feel differently about it.`,
+    ];
+  }
+  if (/^why\b/i.test(question)) {
+    return [
+      `I think the main reason is that people value convenience and quality in their daily lives.`,
+      `From my perspective, it comes down to personal experience and what we are used to.`,
+      `Honestly, I'm not entirely sure, but I believe culture and education play a big role.`,
+    ];
+  }
+  if (/^how\b/i.test(question)) {
+    return [
+      `I would probably start by doing some research and then asking people I trust for advice.`,
+      `In my case, I tend to learn by trying things out and adjusting based on the results.`,
+      `It really depends, but generally I prefer a balanced approach that considers all options.`,
+    ];
+  }
+  if (/^what\b/i.test(question)) {
+    return [
+      `For me, the most important thing is something that matches my personal values and goals.`,
+      `I would choose something practical that I can actually use in my everyday life.`,
+      `Honestly, there are many good options, but I would pick whatever feels right at the time.`,
+    ];
+  }
+  return [
+    `That's an interesting question. In my opinion, it really depends on each person's situation.`,
+    `From my experience, I would say that this varies a lot depending on the context.`,
+    `I think there's no single right answer, but I tend to take a thoughtful approach.`,
+  ];
 }
 
 async function generateAnswerSentences(question, articleContext) {
@@ -1750,10 +1803,18 @@ QUESTION:
 ${question}
 
 3 EXAMPLE ANSWERS:`;
-  const text = await _llmEnqueue(() => _llmCall(prompt));
-  const lines = text.split(/\r?\n/).map(s => s.replace(/^\s*[\d\.\-\*•)]+\s*/, "").replace(/^["']|["']$/g, "").trim()).filter(Boolean).slice(0, 3);
-  while (lines.length < 3) lines.push("(생성 실패 - 다시 시도해주세요)");
-  return lines;
+  try {
+    const text = await _llmEnqueue(() => _llmCall(prompt));
+    const lines = text.split(/\r?\n/).map(s => s.replace(/^\s*[\d\.\-\*•)]+\s*/, "").replace(/^["']|["']$/g, "").trim()).filter(Boolean).slice(0, 3);
+    if (lines.length >= 2) {
+      while (lines.length < 3) lines.push("(추가 답변 생성 실패)");
+      return {lines, fallback: false};
+    }
+    throw new Error("응답 파싱 실패");
+  } catch (e) {
+    console.warn("LLM 실패, 템플릿 폴백 사용:", e.message);
+    return {lines: _templateAnswers(question), fallback: true};
+  }
 }
 
 function bindAnswerButtons(a) {
@@ -1766,7 +1827,8 @@ function bindAnswerButtons(a) {
       box.innerHTML = `<div style="font-size:12px; color:var(--text-dim);">🤖 LLM 호출 중…</div>`;
       try {
         const ctx = (a.paragraphs || []).join(" ");
-        const ens = await generateAnswerSentences(question, ctx);
+        const result = await generateAnswerSentences(question, ctx);
+        const ens = result.lines;
         const kos = [];
         for (const en of ens) kos.push(await translateText(en));
         const answers = ens.map((en, i) => ({ en, ko: kos[i] }));
@@ -1774,7 +1836,8 @@ function bindAnswerButtons(a) {
         a.answers[kind] = a.answers[kind] || [];
         a.answers[kind][idx] = answers;
         saveState();
-        box.innerHTML = renderAnswers(answers);
+        const notice = result.fallback ? `<div style="font-size:11px; color:var(--text-dim); margin-bottom:6px;">⚠️ LLM 일시 차단 — 템플릿 예제 사용 (재시도 가능)</div>` : "";
+        box.innerHTML = notice + renderAnswers(answers);
         btn.textContent = "💡 예제 답변 3개 다시 생성";
       } catch (e) {
         box.innerHTML = `<div style="font-size:12px; color:var(--accent-2);">❌ 실패: ${escapeHtml(e.message)}</div>`;
