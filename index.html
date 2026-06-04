@@ -290,19 +290,6 @@
 </head>
 <body>
 
-<div id="signup-overlay" style="display:none; position:fixed; inset:0; background:rgba(15,23,42,0.6); backdrop-filter:blur(8px); z-index:9999; align-items:center; justify-content:center;">
-  <div style="background:var(--surface, #fff); border-radius:20px; padding:40px; max-width:420px; width:90%; box-shadow:0 20px 60px rgba(0,0,0,0.3);">
-    <h2 style="margin:0 0 8px; background:linear-gradient(135deg,var(--accent),var(--accent-2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; font-size:24px;">환영합니다 👋</h2>
-    <p style="color:var(--text-dim); margin:0 0 24px; font-size:14px;">My English Lab을 시작하려면 가입해주세요.</p>
-    <label style="display:block; font-size:13px; color:var(--text-dim); margin-bottom:6px;">이름 (영문)</label>
-    <input id="signup-name" type="text" placeholder="e.g. John Doe" style="width:100%; padding:12px; border-radius:10px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); margin-bottom:14px; font-size:14px; box-sizing:border-box;">
-    <label style="display:block; font-size:13px; color:var(--text-dim); margin-bottom:6px;">이메일</label>
-    <input id="signup-email" type="email" placeholder="you@example.com" style="width:100%; padding:12px; border-radius:10px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); margin-bottom:18px; font-size:14px; box-sizing:border-box;">
-    <div id="signup-error" style="color:#ef4444; font-size:13px; margin-bottom:12px; min-height:18px;"></div>
-    <button id="signup-submit" style="width:100%; padding:14px; border:none; border-radius:10px; background:linear-gradient(135deg,var(--accent),var(--accent-2)); color:#fff; font-weight:600; font-size:15px; cursor:pointer;">가입하고 시작하기</button>
-  </div>
-</div>
-
 <aside>
   <div class="brand">
     My English Lab
@@ -322,11 +309,28 @@
     <p class="subtitle">오늘도 한 걸음씩 — <span id="today-date"></span></p>
 
     <div class="card" style="margin-bottom:18px;">
-      <h2>📰 새 Article 추가</h2>
-      <p style="color:var(--text-dim); font-size:13px; margin:4px 0 10px;">URL을 입력하면 좌측 사이드바에 Article 버튼이 생깁니다. 클릭 시 영어 원문 + 자연스러운 한글 번역이 좌우로 표시됩니다.</p>
-      <div class="scraper-input">
-        <input type="url" id="dash-article-url" placeholder="https://example.com/article  또는  https://engoo.com/app/daily-news/article/..." />
-        <button class="btn" id="btn-add-article">Article 추가</button>
+      <h2>🎯 Engoo Daily News — 랜덤 학습</h2>
+      <p style="color:var(--text-dim); font-size:13px; margin:4px 0 12px;">카테고리와 레벨을 선택하면 <a href="https://engoo.com/app/daily-news" target="_blank" rel="noopener" style="color:var(--accent);">engoo.com/app/daily-news</a>에서 조건에 맞는 기사 중 하나를 무작위로 가져와 좌측에 영어 원문, 우측에 자연스러운 한글 번역으로 분석합니다.</p>
+      <div style="display:grid; grid-template-columns: 2fr 1fr auto; gap:10px; align-items:end;">
+        <div>
+          <label style="display:block; font-size:12px; color:var(--text-dim); margin-bottom:4px;">카테고리</label>
+          <select id="dash-category" style="width:100%; padding:11px; border-radius:10px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:14px;"></select>
+        </div>
+        <div>
+          <label style="display:block; font-size:12px; color:var(--text-dim); margin-bottom:4px;">레벨</label>
+          <select id="dash-level" style="width:100%; padding:11px; border-radius:10px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:14px;">
+            <option value="">전체</option>
+            <option value="3">Lv 3 — Beginner</option>
+            <option value="4">Lv 4 — Lower-Int.</option>
+            <option value="5">Lv 5 — Intermediate</option>
+            <option value="6">Lv 6 — Upper-Int.</option>
+            <option value="7">Lv 7 — Advanced</option>
+            <option value="8">Lv 8 — Advanced+</option>
+            <option value="9">Lv 9 — Proficient</option>
+            <option value="10">Lv 10 — Proficient+</option>
+          </select>
+        </div>
+        <button class="btn" id="btn-pick-random" style="white-space:nowrap;">🎲 랜덤 분석</button>
       </div>
       <div id="dash-article-status" style="margin-top:10px; font-size:13px; color:var(--text-dim);"></div>
     </div>
@@ -1167,37 +1171,62 @@ function renderArticle(a) {
   state.passagesRead = state.passagesRead || []; tickActivity();
 }
 
-$("#btn-add-article").addEventListener("click", () => {
-  const u = $("#dash-article-url").value.trim();
-  if (!/^https?:\/\//.test(u)) { toast("올바른 URL을 입력하세요"); return; }
-  addArticleFromUrl(u);
+$("#dash-article-url")?.remove?.();
+
+const ENGOO_CATEGORIES = [
+  { name: "Business & Politics",   slug: "business-politics/g422El24T2-cp4ZD5C3oeQ" },
+  { name: "Science & Technology",  slug: "science-technology/NsA7ULu6SB-n5NKynT-kfA" },
+  { name: "Health & Lifestyle",    slug: "health-lifestyle/gFMVmUuNQ7atEeS09YtzZQ" },
+  { name: "Culture & Society",     slug: "culture-society/GmM-aNukTLqFeqncqCuSwQ" },
+  { name: "Travel & Experiences",  slug: "travel-experiences/BvsrQV68TciuqXebtgwiJA" },
+];
+
+(function initCategorySelect() {
+  const sel = $("#dash-category");
+  if (!sel) return;
+  sel.innerHTML = ENGOO_CATEGORIES.map(c => `<option value="${c.slug}">${c.name}</option>`).join("");
+})();
+
+async function pickRandomEngooArticle(slug, level) {
+  const status = $("#dash-article-status");
+  const target = `https://engoo.com/app/daily-news/category/${slug}`;
+  status.textContent = "📡 카테고리 페이지 가져오는 중...";
+  let text = "";
+  try {
+    const res = await fetch(`https://r.jina.ai/${target}`);
+    text = await res.text();
+  } catch (e) {
+    status.textContent = "❌ 카테고리 페이지를 불러올 수 없습니다."; return;
+  }
+  const re = /https:\/\/engoo\.com\/app\/daily-news\/article\/[a-z0-9-]+\/[A-Za-z0-9_-]+/g;
+  let urls = [...new Set(text.match(re) || [])];
+  if (!urls.length) { status.textContent = "❌ 기사를 찾지 못했습니다."; return; }
+
+  if (level) {
+    const lines = text.split("\n");
+    const filtered = new Set();
+    for (let i = 0; i < lines.length; i++) {
+      const m = lines[i].match(re);
+      if (!m) continue;
+      const ctx = lines.slice(Math.max(0, i - 6), i + 6).join(" ");
+      if (new RegExp(`Level\\s*${level}\\b`).test(ctx)) m.forEach(u => filtered.add(u));
+    }
+    if (filtered.size) urls = [...filtered];
+    else status.textContent = `⚠️ 레벨 ${level} 기사를 찾지 못해 전체에서 무작위 선택합니다... `;
+  }
+
+  const pick = urls[Math.floor(Math.random() * urls.length)];
+  status.textContent = `🎯 선정: ${pick}`;
+  await addArticleFromUrl(pick);
+}
+
+$("#btn-pick-random").addEventListener("click", () => {
+  const slug = $("#dash-category").value;
+  const level = $("#dash-level").value;
+  pickRandomEngooArticle(slug, level);
 });
-$("#dash-article-url").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#btn-add-article").click(); });
 
 renderArticleNav();
-
-// Signup gating
-function applyUserUI() {
-  const overlay = document.getElementById("signup-overlay");
-  const small = document.getElementById("brand-user");
-  if (!state.user) {
-    overlay.style.display = "flex";
-  } else {
-    overlay.style.display = "none";
-    if (small) small.textContent = `👤 ${state.user.name}`;
-  }
-}
-document.getElementById("signup-submit").addEventListener("click", () => {
-  const name = document.getElementById("signup-name").value.trim();
-  const email = document.getElementById("signup-email").value.trim();
-  const err = document.getElementById("signup-error");
-  err.textContent = "";
-  if (!/^[A-Za-z][A-Za-z\s.'-]{0,49}$/.test(name)) { err.textContent = "이름은 영문으로 입력하세요."; return; }
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = "올바른 이메일을 입력하세요."; return; }
-  state.user = { name, email, joinedAt: new Date().toISOString() };
-  saveState(); applyUserUI(); toast(`환영합니다, ${name}!`);
-});
-applyUserUI();
 </script>
 </body>
 </html>
