@@ -275,21 +275,26 @@
   .cal-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
   .cal-title { font-weight: 700; font-size: 15px; }
   .cal-count { font-size: 12px; color: var(--text-dim); }
-  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
-  .cal-dow { margin-bottom: 2px; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; grid-auto-rows: 34px; }
+  .cal-dow { margin-bottom: 2px; grid-auto-rows: 22px; }
   .cal-dn { text-align: center; font-size: 11px; font-weight: 600; color: var(--text-dim); padding: 4px 0; }
   .cal-dn.sun { color: #ef4444; } .cal-dn.sat { color: #3b82f6; }
-  .cal-cell { aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; font-size: 12px; border-radius: 6px; color: var(--text-dim); position: relative; transition: transform 0.15s; }
+  .cal-cell { display: flex; align-items: center; justify-content: center; font-size: 12px; border-radius: 6px; color: var(--text-dim); position: relative; transition: transform 0.15s; }
   .cal-cell.empty { background: transparent; }
-  .cal-cell:not(.empty):not(.present) { background: rgba(255,255,255,0.03); }
+  .cal-cell:not(.empty):not(.present):not(.holiday) { background: rgba(255,255,255,0.03); }
   .cal-cell.present { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: white; font-weight: 700; box-shadow: 0 2px 8px rgba(99,102,241,0.4); }
   .cal-cell.present::after { content: "✓"; position: absolute; top: 1px; right: 3px; font-size: 8px; opacity: 0.8; }
   .cal-cell.today { outline: 2px solid var(--accent-3); outline-offset: 1px; }
-  .cal-cell.holiday { color: #ef4444; font-weight: 700; }
-  .cal-cell.holiday::before { content: ""; position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; background: #ef4444; border-radius: 50%; }
-  .cal-cell.sun { color: #ef4444; }
-  .cal-cell.sat { color: #3b82f6; }
-  .cal-cell:hover:not(.empty) { transform: scale(1.08); cursor: default; }
+  .cal-cell.holiday { color: #fff; font-weight: 800; background: linear-gradient(135deg, #ef4444, #dc2626); box-shadow: 0 2px 6px rgba(239,68,68,0.45); border: 1px solid #fca5a5; }
+  .cal-cell.holiday.present { background: linear-gradient(135deg, #ef4444, #ec4899); }
+  .cal-cell.sun:not(.holiday):not(.present) { color: #ef4444; }
+  .cal-cell.sat:not(.holiday):not(.present) { color: #3b82f6; }
+  .cal-cell:hover:not(.empty) { transform: scale(1.08); cursor: default; z-index: 2; }
+  .cal-legend { display: flex; gap: 12px; align-items: center; margin-top: 8px; font-size: 11px; color: var(--text-dim); flex-wrap: wrap; }
+  .cal-legend .lg-item { display: inline-flex; align-items: center; gap: 4px; }
+  .cal-legend .lg-sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  .lg-sw.lg-hol { background: linear-gradient(135deg, #ef4444, #dc2626); }
+  .lg-sw.lg-att { background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
 </style>
 </head>
 <body>
@@ -316,6 +321,12 @@
     <div class="card" style="margin-bottom:18px;">
       <h2>📅 출석 달력 <span style="color:var(--text-dim); font-size:13px; font-weight:400;">— URL 추가일이 출석으로 기록됩니다</span></h2>
       <div id="attendance-calendar" class="cal-wrap"></div>
+<div class="cal-legend">
+  <span class="lg-item"><span class="lg-sw lg-att"></span> 출석</span>
+  <span class="lg-item"><span class="lg-sw lg-hol"></span> 한국 공휴일</span>
+  <span class="lg-item" style="color:#ef4444;">● 일요일</span>
+  <span class="lg-item" style="color:#3b82f6;">● 토요일</span>
+</div>
     </div>
 
     <div class="card">
