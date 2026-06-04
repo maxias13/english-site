@@ -275,16 +275,20 @@
   .cal-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
   .cal-title { font-weight: 700; font-size: 15px; }
   .cal-count { font-size: 12px; color: var(--text-dim); }
-  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
-  .cal-dow { margin-bottom: 4px; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+  .cal-dow { margin-bottom: 2px; }
   .cal-dn { text-align: center; font-size: 11px; font-weight: 600; color: var(--text-dim); padding: 4px 0; }
   .cal-dn.sun { color: #ef4444; } .cal-dn.sat { color: #3b82f6; }
-  .cal-cell { aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; font-size: 12px; border-radius: 8px; color: var(--text-dim); position: relative; transition: transform 0.15s; }
+  .cal-cell { aspect-ratio: 1/1; display: flex; align-items: center; justify-content: center; font-size: 12px; border-radius: 6px; color: var(--text-dim); position: relative; transition: transform 0.15s; }
   .cal-cell.empty { background: transparent; }
   .cal-cell:not(.empty):not(.present) { background: rgba(255,255,255,0.03); }
   .cal-cell.present { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: white; font-weight: 700; box-shadow: 0 2px 8px rgba(99,102,241,0.4); }
   .cal-cell.present::after { content: "✓"; position: absolute; top: 1px; right: 3px; font-size: 8px; opacity: 0.8; }
   .cal-cell.today { outline: 2px solid var(--accent-3); outline-offset: 1px; }
+  .cal-cell.holiday { color: #ef4444; font-weight: 700; }
+  .cal-cell.holiday::before { content: ""; position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%); width: 4px; height: 4px; background: #ef4444; border-radius: 50%; }
+  .cal-cell.sun { color: #ef4444; }
+  .cal-cell.sat { color: #3b82f6; }
   .cal-cell:hover:not(.empty) { transform: scale(1.08); cursor: default; }
 </style>
 </head>
@@ -759,19 +763,34 @@ function renderAttendanceCalendar() {
   const months = [-1, 0, 1].map(off => {
     const d = new Date(today.getFullYear(), today.getMonth() + off, 1); return d;
   });
+  // Ensure holidays cached for involved years
+  const years = [...new Set(months.map(m => m.getFullYear()))];
+  years.forEach(y => ensureHolidays(y).then(changed => { if (changed) renderAttendanceCalendar(); }));
   const dayNames = ["일","월","화","수","목","금","토"];
+  state.holidays = state.holidays || {};
   const html = months.map(m => {
     const year = m.getFullYear(), month = m.getMonth();
     const first = new Date(year, month, 1).getDay();
     const last = new Date(year, month + 1, 0).getDate();
     const isCurrent = month === today.getMonth() && year === today.getFullYear();
+    const yearHols = (state.holidays[year] || []);
+    const holMap = {}; yearHols.forEach(h => { holMap[h.date] = h.name; });
     let cells = "";
     for (let i = 0; i < first; i++) cells += `<div class="cal-cell empty"></div>`;
     for (let d = 1; d <= last; d++) {
       const k = `${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
       const present = !!att[k];
       const isToday = k === todayK;
-      cells += `<div class="cal-cell${present ? " present" : ""}${isToday ? " today" : ""}" title="${k}${present ? " ✅ 출석" : ""}">${d}</div>`;
+      const dow = new Date(year, month, d).getDay();
+      const holName = holMap[k];
+      const cls = ["cal-cell"];
+      if (present) cls.push("present");
+      if (isToday) cls.push("today");
+      if (holName) cls.push("holiday");
+      if (dow === 0) cls.push("sun");
+      if (dow === 6) cls.push("sat");
+      const title = `${k}${holName ? " · " + holName : ""}${present ? " ✅ 출석" : ""}`;
+      cells += `<div class="${cls.join(" ")}" title="${escapeHtml(title)}">${d}</div>`;
     }
     const monthName = `${year}년 ${month+1}월`;
     const count = Object.keys(att).filter(k => k.startsWith(`${year}-${String(month+1).padStart(2,"0")}`)).length;
@@ -786,6 +805,22 @@ function renderAttendanceCalendar() {
       </div>`;
   }).join("");
   wrap.innerHTML = html;
+}
+
+async function ensureHolidays(year) {
+  state.holidays = state.holidays || {};
+  if (state.holidays[year] && state.holidays[year].length) return false;
+  try {
+    const res = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${year}/KR`);
+    if (!res.ok) throw new Error("nager " + res.status);
+    const data = await res.json();
+    state.holidays[year] = data.map(h => ({ date: h.date, name: h.localName || h.name }));
+    saveState();
+    return true;
+  } catch(e) {
+    state.holidays[year] = state.holidays[year] || [];
+    return false;
+  }
 }
 
 function renderReading() {
@@ -1254,10 +1289,10 @@ async function addArticleFromUrl(url) {
   status.textContent = "📥 본문 다운로드 중…"; status.style.color = "var(--text-dim)";
   try {
     const md = await fetchArticleMarkdown(url, status);
-    const parsed = parseGenericMarkdown(md);
-    if (!parsed.paragraphs.length) throw new Error("본문을 찾지 못했습니다.");
+    let parsed = parseGenericMarkdown(md);
     // Extract Engoo extras (audio, vocab, quiz, discussion, further) when available
     let extras = { audioInfo: "", vocab: [], questions: [], discussion: [], further: [] };
+    const isEngoo = /engoo\.com\/app\/daily-news/i.test(url);
     try {
       const eng = parseEngooMarkdown(md);
       extras.audioInfo = eng.audioInfo || "";
@@ -1265,7 +1300,14 @@ async function addArticleFromUrl(url) {
       extras.questions = eng.questions || [];
       extras.discussion = eng.discussion || [];
       extras.further = eng.further || [];
+      // For Engoo: prefer Engoo-specific paragraphs (generic parser cuts at "Vocabulary")
+      if (isEngoo && eng.paragraphs && eng.paragraphs.length) {
+        parsed = { title: eng.title || parsed.title, paragraphs: eng.paragraphs };
+      }
     } catch(_) {}
+    // Clean Engoo title suffix
+    if (parsed.title) parsed.title = parsed.title.replace(/\s*\|\s*Engoo Daily News\s*$/i, "").trim();
+    if (!parsed.paragraphs.length) throw new Error("본문을 찾지 못했습니다.");
     if (!extras.audioInfo) {
       const am = md.match(/AI Generated Audio\s+([\d:]+)\s*\/\s*([\d:]+)/);
       if (am) extras.audioInfo = `${am[1]} / ${am[2]}`;
@@ -1376,7 +1418,19 @@ function renderArticle(a) {
         <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener" style="color:var(--accent);">원문 열기 ↗</a>
         · ${a.paragraphs.length} paragraphs · 저장: ${new Date(a.savedAt).toLocaleString()}
       </p>
-      ${a.audioInfo ? `<div style="margin:0 0 12px; padding:8px 12px; background:var(--surface-2); border-radius:8px; font-size:13px;">🔊 <strong>AI Generated Audio</strong> · ${escapeHtml(a.audioInfo)}</div>` : ""}
+      <div id="article-audio-bar" style="margin:0 0 12px; padding:10px 12px; background:var(--surface-2); border-radius:8px; font-size:13px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <span>🔊 <strong>음성 재생</strong>${a.audioInfo ? ` · <span style="color:var(--text-dim);">${escapeHtml(a.audioInfo)}</span>` : ""}</span>
+        <span style="display:inline-flex; gap:6px;">
+          <button id="audio-play"  type="button" style="padding:6px 12px; border-radius:6px; border:1px solid var(--border); background:var(--accent); color:white; cursor:pointer;">▶ 재생</button>
+          <button id="audio-pause" type="button" style="padding:6px 12px; border-radius:6px; border:1px solid var(--border); background:var(--surface); cursor:pointer;">⏸ 일시정지</button>
+          <button id="audio-stop"  type="button" style="padding:6px 12px; border-radius:6px; border:1px solid var(--border); background:var(--surface); cursor:pointer;">⏹ 정지</button>
+        </span>
+        <label style="display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--text-dim);">속도
+          <input id="audio-rate" type="range" min="0.6" max="1.4" step="0.1" value="1" style="width:90px;">
+          <span id="audio-rate-val">1.0x</span>
+        </label>
+        <span id="audio-status" style="font-size:12px; color:var(--text-dim);"></span>
+      </div>
       <div class="bilingual" style="margin-bottom: 10px;">
         <div class="col"><h3>🇺🇸 English</h3></div>
         <div class="col"><h3>🇰🇷 한국어</h3></div>
@@ -1388,6 +1442,34 @@ function renderArticle(a) {
     ${qList(a.discussion, a.discussionTr, "Discussion", "💬")}
     ${qList(a.further, a.furtherTr, "Further Discussion", "🗣️")}`;
   state.passagesRead = state.passagesRead || []; tickActivity();
+  setupAudioPlayer(a);
+}
+
+let _ttsUtter = null;
+function setupAudioPlayer(a) {
+  if (!("speechSynthesis" in window)) {
+    const bar = $("#article-audio-bar"); if (bar) bar.querySelector("#audio-status").textContent = "이 브라우저는 음성합성을 지원하지 않습니다";
+    return;
+  }
+  const playBtn = $("#audio-play"), pauseBtn = $("#audio-pause"), stopBtn = $("#audio-stop");
+  const rate = $("#audio-rate"), rateVal = $("#audio-rate-val"), st = $("#audio-status");
+  if (!playBtn) return;
+  const text = (a.paragraphs || []).join(" ");
+  rate.addEventListener("input", () => { rateVal.textContent = (+rate.value).toFixed(1) + "x"; if (_ttsUtter) _ttsUtter.rate = +rate.value; });
+  playBtn.addEventListener("click", () => {
+    try {
+      if (window.speechSynthesis.paused && _ttsUtter) { window.speechSynthesis.resume(); st.textContent = "▶ 재생 중"; return; }
+      window.speechSynthesis.cancel();
+      _ttsUtter = new SpeechSynthesisUtterance(text);
+      _ttsUtter.lang = "en-US"; _ttsUtter.rate = +rate.value || 1;
+      _ttsUtter.onend = () => { st.textContent = "✓ 완료"; };
+      _ttsUtter.onerror = (e) => { st.textContent = "❌ 오류: " + (e.error || "unknown"); };
+      window.speechSynthesis.speak(_ttsUtter);
+      st.textContent = "▶ 재생 중";
+    } catch (e) { st.textContent = "❌ " + e.message; }
+  });
+  pauseBtn.addEventListener("click", () => { if (window.speechSynthesis.speaking) { window.speechSynthesis.pause(); st.textContent = "⏸ 일시정지"; } });
+  stopBtn.addEventListener("click",  () => { window.speechSynthesis.cancel(); _ttsUtter = null; st.textContent = "⏹ 정지"; });
 }
 
 $("#dash-article-url")?.remove?.();
