@@ -1710,6 +1710,35 @@ function renderAnswers(arr) {
     </li>`).join("") + `</ol>`;
 }
 
+let _llmQueue = Promise.resolve();
+function _llmEnqueue(fn) {
+  const next = _llmQueue.then(() => fn(), () => fn());
+  _llmQueue = next.catch(() => {});
+  return next;
+}
+const _sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+async function _llmCall(prompt) {
+  const models = ["mistral", "openai", "llama"];
+  const delays = [0, 2500, 6000, 12000];
+  let lastErr = null;
+  for (const d of delays) {
+    if (d) await _sleep(d);
+    for (const m of models) {
+      try {
+        const url = "https://text.pollinations.ai/" + encodeURIComponent(prompt) + "?model=" + m;
+        const res = await fetch(url);
+        if (res.status === 429) { lastErr = new Error("HTTP 429"); continue; }
+        if (!res.ok) { lastErr = new Error("HTTP " + res.status); continue; }
+        const text = (await res.text()).trim();
+        if (text && text.length > 10) return text;
+        lastErr = new Error("empty response");
+      } catch (e) { lastErr = e; }
+    }
+  }
+  throw lastErr || new Error("LLM 모든 시도 실패");
+}
+
 async function generateAnswerSentences(question, articleContext) {
   const ctx = (articleContext || "").slice(0, 1200);
   const prompt = `You are helping a Korean learner study English. Given the article context and the discussion question, write EXACTLY 3 short example answer sentences in natural English (each 1-2 sentences, 15-30 words). Output ONLY the 3 sentences, one per line, no numbering, no quotes, no extra text.
@@ -1721,10 +1750,7 @@ QUESTION:
 ${question}
 
 3 EXAMPLE ANSWERS:`;
-  const url = "https://text.pollinations.ai/" + encodeURIComponent(prompt) + "?model=openai";
-  const res = await fetch(url);
-  if (!res.ok) throw new Error("LLM HTTP " + res.status);
-  const text = (await res.text()).trim();
+  const text = await _llmEnqueue(() => _llmCall(prompt));
   const lines = text.split(/\r?\n/).map(s => s.replace(/^\s*[\d\.\-\*•)]+\s*/, "").replace(/^["']|["']$/g, "").trim()).filter(Boolean).slice(0, 3);
   while (lines.length < 3) lines.push("(생성 실패 - 다시 시도해주세요)");
   return lines;
