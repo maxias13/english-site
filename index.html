@@ -1637,15 +1637,27 @@ function renderArticle(a) {
           </div>`).join("")}
       </div>
     </div>` : "";
-  const qList = (en, ko, title, icon) => (en && en.length) ? `
+  const qList = (en, ko, title, icon, kind) => (en && en.length) ? `
     <div class="card" style="margin-top:16px;">
       <h2>${icon} ${title} (${en.length})</h2>
       <ol style="margin:8px 0 0; padding-left:20px;">
-        ${en.map((q,i) => `
-          <li style="margin-bottom:10px;">
+        ${en.map((q,i) => {
+          const cached = (a.answers && a.answers[kind] && a.answers[kind][i]) || null;
+          return `
+          <li style="margin-bottom:14px;">
             <div>${escapeHtml(q)}</div>
             ${(ko && ko[i]) ? `<div style="color:#7dd3fc; font-size:13px; margin-top:2px;">↳ ${escapeHtml(ko[i])}</div>` : ""}
-          </li>`).join("")}
+            <div style="margin-top:6px;">
+              <button type="button" class="ans-btn" data-kind="${kind}" data-idx="${i}"
+                style="padding:4px 10px; font-size:12px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); cursor:pointer;">
+                💡 예제 답변 3개 ${cached ? "다시 생성" : "보기"}
+              </button>
+              <div class="ans-box" data-kind="${kind}" data-idx="${i}" style="margin-top:6px;">
+                ${cached ? renderAnswers(cached) : ""}
+              </div>
+            </div>
+          </li>`;
+        }).join("")}
       </ol>
     </div>` : "";
   out.innerHTML = `
@@ -1681,11 +1693,69 @@ function renderArticle(a) {
       ${rows}
     </div>
     ${vocabHtml}
-    ${qList(a.questions, a.questionsTr, "Article Quiz", "❓")}
-    ${qList(a.discussion, a.discussionTr, "Discussion", "💬")}
-    ${qList(a.further, a.furtherTr, "Further Discussion", "🗣️")}`;
+    ${qList(a.questions, a.questionsTr, "Article Quiz", "❓", "questions")}
+    ${qList(a.discussion, a.discussionTr, "Discussion", "💬", "discussion")}
+    ${qList(a.further, a.furtherTr, "Further Discussion", "🗣️", "further")}`;
   state.passagesRead = state.passagesRead || []; tickActivity();
   if (!a.audioUrl) setupAudioPlayer(a);
+  bindAnswerButtons(a);
+}
+
+function renderAnswers(arr) {
+  if (!arr || !arr.length) return "";
+  return `<ol style="margin:4px 0 0; padding-left:18px;">` + arr.map(x => `
+    <li style="margin-bottom:6px;">
+      <div style="font-size:13px;">${escapeHtml(x.en)}</div>
+      ${x.ko ? `<div style="font-size:12px; color:#7dd3fc;">↳ ${escapeHtml(x.ko)}</div>` : ""}
+    </li>`).join("") + `</ol>`;
+}
+
+async function generateAnswerSentences(question, articleContext) {
+  const ctx = (articleContext || "").slice(0, 1200);
+  const prompt = `You are helping a Korean learner study English. Given the article context and the discussion question, write EXACTLY 3 short example answer sentences in natural English (each 1-2 sentences, 15-30 words). Output ONLY the 3 sentences, one per line, no numbering, no quotes, no extra text.
+
+ARTICLE CONTEXT:
+${ctx}
+
+QUESTION:
+${question}
+
+3 EXAMPLE ANSWERS:`;
+  const url = "https://text.pollinations.ai/" + encodeURIComponent(prompt) + "?model=openai";
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("LLM HTTP " + res.status);
+  const text = (await res.text()).trim();
+  const lines = text.split(/\r?\n/).map(s => s.replace(/^\s*[\d\.\-\*•)]+\s*/, "").replace(/^["']|["']$/g, "").trim()).filter(Boolean).slice(0, 3);
+  while (lines.length < 3) lines.push("(생성 실패 - 다시 시도해주세요)");
+  return lines;
+}
+
+function bindAnswerButtons(a) {
+  $$(".ans-btn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const kind = btn.dataset.kind, idx = +btn.dataset.idx;
+      const question = (a[kind] || [])[idx]; if (!question) return;
+      const box = document.querySelector(`.ans-box[data-kind="${kind}"][data-idx="${idx}"]`);
+      btn.disabled = true; const orig = btn.textContent; btn.textContent = "⏳ 생성 중…";
+      box.innerHTML = `<div style="font-size:12px; color:var(--text-dim);">🤖 LLM 호출 중…</div>`;
+      try {
+        const ctx = (a.paragraphs || []).join(" ");
+        const ens = await generateAnswerSentences(question, ctx);
+        const kos = [];
+        for (const en of ens) kos.push(await translateText(en));
+        const answers = ens.map((en, i) => ({ en, ko: kos[i] }));
+        a.answers = a.answers || {};
+        a.answers[kind] = a.answers[kind] || [];
+        a.answers[kind][idx] = answers;
+        saveState();
+        box.innerHTML = renderAnswers(answers);
+        btn.textContent = "💡 예제 답변 3개 다시 생성";
+      } catch (e) {
+        box.innerHTML = `<div style="font-size:12px; color:var(--accent-2);">❌ 실패: ${escapeHtml(e.message)}</div>`;
+        btn.textContent = orig;
+      } finally { btn.disabled = false; }
+    });
+  });
 }
 
 let _ttsUtter = null;
