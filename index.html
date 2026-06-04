@@ -310,6 +310,11 @@
     <p class="subtitle">오늘도 한 걸음씩 — <span id="today-date"></span></p>
 
     <div class="card" style="margin-bottom:18px;">
+      <h2>📅 출석 달력 <span style="color:var(--text-dim); font-size:13px; font-weight:400;">— URL 추가일이 출석으로 기록됩니다</span></h2>
+      <div id="attendance-calendar" class="cal-wrap"></div>
+    </div>
+
+    <div class="card">
       <h2>🎯 Engoo Daily News — 최신 학습</h2>
       <p style="color:var(--text-dim); font-size:13px; margin:4px 0 12px;">카테고리와 레벨을 선택하면 <a href="https://engoo.com/app/daily-news" target="_blank" rel="noopener" style="color:var(--accent);">engoo.com/app/daily-news</a>에서 조건에 맞는 가장 최근 기사를 가져와 좌측에 영어 원문, 우측에 자연스러운 한글 번역으로 분석합니다.</p>
       <div style="display:grid; grid-template-columns: 2fr 1fr auto; gap:10px; align-items:end;">
@@ -334,11 +339,6 @@
         <button class="btn" id="btn-pick-random" style="white-space:nowrap;">📰 최신 분석</button>
       </div>
       <div id="dash-article-status" style="margin-top:10px; font-size:13px; color:var(--text-dim);"></div>
-    </div>
-
-    <div class="card" style="margin-top:18px;">
-      <h2>📅 출석 달력 <span style="color:var(--text-dim); font-size:13px; font-weight:400;">— URL 추가일이 출석으로 기록됩니다</span></h2>
-      <div id="attendance-calendar" class="cal-wrap"></div>
     </div>
   </section>
 
@@ -522,6 +522,56 @@ async function hashPassword(pw) {
   return Array.from(new Uint8Array(h)).map(b => b.toString(16).padStart(2, "0")).join("");
 }
 
+function fmtKST(iso) {
+  if (!iso) return "-";
+  return new Date(iso).toLocaleString("ko-KR", { timeZone: "Asia/Seoul", year:"numeric", month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit", hour12:false });
+}
+
+function recordSession(id, type) {
+  if (!state.users || !state.users[id]) return;
+  const u = state.users[id];
+  if (!u.sessions) u.sessions = [];
+  u.sessions.push({ type, at: new Date().toISOString() });
+  if (u.sessions.length > 500) u.sessions = u.sessions.slice(-500);
+}
+
+function recordArticleStudy(articleId, title, url) {
+  const uid = state.user?.id; if (!uid) return;
+  const u = state.users?.[uid]; if (!u) return;
+  if (!u.history) u.history = [];
+  u.history.push({ articleId, title, url, at: new Date().toISOString() });
+  if (u.history.length > 500) u.history = u.history.slice(-500);
+}
+
+function showUserHistoryModal() {
+  const uid = state.user?.id; if (!uid) return;
+  const u = state.users?.[uid] || {};
+  const sessions = (u.sessions || []).slice().reverse();
+  const history = (u.history || []).slice().reverse();
+  const back = document.createElement("div");
+  back.style.cssText = "position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px;";
+  back.innerHTML = `
+    <div style="background:var(--card); color:var(--text); border-radius:14px; max-width:720px; width:100%; max-height:85vh; overflow:auto; padding:22px; box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <div>
+          <div style="font-size:18px; font-weight:800;">👤 ${escapeHtml(u.id)}</div>
+          <div style="font-size:12px; color:var(--text-dim);">${escapeHtml(u.email||"")} · 가입 ${fmtKST(u.createdAt)}</div>
+        </div>
+        <button class="btn" id="hist-close" style="padding:6px 14px;">닫기</button>
+      </div>
+      <h3 style="font-size:14px; margin:14px 0 8px;">🔐 로그인 / 로그아웃 기록 (${sessions.length})</h3>
+      <div style="background:var(--bg); border-radius:8px; padding:8px; max-height:200px; overflow:auto; font-size:12px;">
+        ${sessions.length ? sessions.map(s => `<div style="padding:4px 6px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between;"><span>${s.type==="login"?"🟢 로그인":"🔴 로그아웃"}</span><span style="color:var(--text-dim);">${fmtKST(s.at)}</span></div>`).join("") : '<div style="padding:8px; color:var(--text-dim);">기록 없음</div>'}
+      </div>
+      <h3 style="font-size:14px; margin:14px 0 8px;">📰 학습한 Article (${history.length})</h3>
+      <div style="background:var(--bg); border-radius:8px; padding:8px; max-height:280px; overflow:auto; font-size:12px;">
+        ${history.length ? history.map(h => `<div style="padding:6px; border-bottom:1px solid var(--border);"><div style="font-weight:600;">${escapeHtml(h.title||h.articleId)}</div><div style="color:var(--text-dim); font-size:11px; margin-top:2px;">${fmtKST(h.at)} · <a href="${escapeHtml(h.url||'#')}" target="_blank" style="color:var(--accent);">원문</a></div></div>`).join("") : '<div style="padding:8px; color:var(--text-dim);">학습 기록 없음</div>'}
+      </div>
+    </div>`;
+  back.onclick = (e) => { if (e.target === back || e.target.id === "hist-close") back.remove(); };
+  document.body.appendChild(back);
+}
+
 let _authMode = "login"; // "login" | "signup"
 
 function renderAuthBox() {
@@ -531,14 +581,18 @@ function renderAuthBox() {
   if (u) {
     box.innerHTML = `
       <div style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
-        <div style="font-size:12px; line-height:1.3;">
+        <div id="user-info" style="font-size:12px; line-height:1.3; cursor:pointer; flex:1;" title="클릭: 로그인/학습 기록 보기">
           <div style="font-weight:700;">👤 ${escapeHtml(u.id)}</div>
           <div style="color:var(--text-dim); font-size:11px;">${escapeHtml(u.email || "")}</div>
         </div>
         <button class="btn" id="btn-logout" style="padding:4px 10px; font-size:11px;">로그아웃</button>
       </div>`;
     $("#brand-user").textContent = `Hi, ${u.id}`;
-    $("#btn-logout").onclick = () => { state.user = null; saveState(); renderAuthBox(); renderArticleNav(); };
+    $("#user-info").onclick = showUserHistoryModal;
+    $("#btn-logout").onclick = () => {
+      recordSession(u.id, "logout");
+      state.user = null; saveState(); renderAuthBox(); renderArticleNav();
+    };
     return;
   }
 
@@ -578,14 +632,16 @@ function renderAuthBox() {
     if (_authMode === "signup") {
       const email = $("#auth-email").value.trim();
       if (state.users[id]) { msg.textContent = "이미 존재하는 아이디입니다."; return; }
-      state.users[id] = { id, email, passHash, createdAt: new Date().toISOString() };
+      state.users[id] = { id, email, passHash, createdAt: new Date().toISOString(), sessions: [], history: [] };
       state.user = { id, email };
+      recordSession(id, "login");
       saveState(); renderAuthBox(); renderArticleNav();
       toast(`✅ 가입 완료: ${id}`);
     } else {
       const rec = state.users[id];
       if (!rec || rec.passHash !== passHash) { msg.textContent = "아이디 또는 암호가 올바르지 않습니다."; return; }
       state.user = { id: rec.id, email: rec.email };
+      recordSession(rec.id, "login");
       saveState(); renderAuthBox(); renderArticleNav();
       toast(`👋 ${id} 로그인`);
     }
@@ -1200,14 +1256,42 @@ async function addArticleFromUrl(url) {
     const md = await fetchArticleMarkdown(url, status);
     const parsed = parseGenericMarkdown(md);
     if (!parsed.paragraphs.length) throw new Error("본문을 찾지 못했습니다.");
+    // Extract Engoo extras (audio, vocab, quiz, discussion, further) when available
+    let extras = { audioInfo: "", vocab: [], questions: [], discussion: [], further: [] };
+    try {
+      const eng = parseEngooMarkdown(md);
+      extras.audioInfo = eng.audioInfo || "";
+      extras.vocab = eng.vocab || [];
+      extras.questions = eng.questions || [];
+      extras.discussion = eng.discussion || [];
+      extras.further = eng.further || [];
+    } catch(_) {}
+    if (!extras.audioInfo) {
+      const am = md.match(/AI Generated Audio\s+([\d:]+)\s*\/\s*([\d:]+)/);
+      if (am) extras.audioInfo = `${am[1]} / ${am[2]}`;
+    }
     status.textContent = `🌐 ${parsed.paragraphs.length}개 단락 한글 번역 중…`;
     const translations = [];
     for (const p of parsed.paragraphs) { translations.push(await translateText(p)); }
+    const vocabTr = [];
+    for (const v of extras.vocab) { vocabTr.push(await translateText(v.def)); }
+    const questionsTr = [];
+    for (const q of extras.questions) { questionsTr.push(await translateText(q)); }
+    const discussionTr = [];
+    for (const q of extras.discussion) { discussionTr.push(await translateText(q)); }
+    const furtherTr = [];
+    for (const q of extras.further) { furtherTr.push(await translateText(q)); }
     const article = { id: "a_" + Date.now().toString(36), url, title: parsed.title,
                       paragraphs: parsed.paragraphs, translations, savedAt: new Date().toISOString(),
+                      audioInfo: extras.audioInfo,
+                      vocab: extras.vocab, vocabTr,
+                      questions: extras.questions, questionsTr,
+                      discussion: extras.discussion, discussionTr,
+                      further: extras.further, furtherTr,
                       userEmail: state.user?.email || null, userId: state.user?.id || null };
     state.articles.unshift(article); saveState(); renderArticleNav();
     state.attendance = state.attendance || {}; state.attendance[todayKey()] = true; saveState();
+    recordArticleStudy(article.id, article.title, article.url);
     status.textContent = `✅ 추가 완료: ${parsed.title}`; status.style.color = "var(--accent)";
     openArticle(article.id);
   } catch (e) {
@@ -1247,6 +1331,7 @@ function openArticle(id) {
   $$("#nav-articles button").forEach(b => b.classList.toggle("active", b.dataset.article === id));
   $$(".page").forEach(p => p.classList.toggle("active", p.id === "page-article"));
   renderArticle(a);
+  recordArticleStudy(a.id, a.title, a.url);
 }
 
 function renderArticle(a) {
@@ -1256,6 +1341,34 @@ function renderArticle(a) {
       <div class="col"><p>${escapeHtml(p)}</p></div>
       <div class="col"><p>${escapeHtml(a.translations[i] || "(번역 없음)")}</p></div>
     </div>`).join("");
+  const vocab = a.vocab || [], vocabTr = a.vocabTr || [];
+  const vocabHtml = vocab.length ? `
+    <div class="card" style="margin-top:16px;">
+      <h2>📚 Vocabulary (${vocab.length})</h2>
+      <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:10px; margin-top:10px;">
+        ${vocab.map((v,i) => `
+          <div style="padding:12px; border:1px solid var(--border); border-radius:10px; background:var(--surface-2);">
+            <div style="display:flex; justify-content:space-between; align-items:baseline; gap:8px;">
+              <strong style="font-size:16px;">${escapeHtml(v.word)}</strong>
+              <span style="font-size:11px; color:var(--text-dim);">${escapeHtml(v.pos)}</span>
+            </div>
+            <div style="font-size:12px; color:var(--text-dim); margin:2px 0;">${escapeHtml(v.ipa||"")}</div>
+            <div style="font-size:13px; margin-top:4px;">${escapeHtml(v.def)}</div>
+            ${vocabTr[i] ? `<div style="font-size:13px; color:var(--accent); margin-top:4px;">↳ ${escapeHtml(vocabTr[i])}</div>` : ""}
+          </div>`).join("")}
+      </div>
+    </div>` : "";
+  const qList = (en, ko, title, icon) => (en && en.length) ? `
+    <div class="card" style="margin-top:16px;">
+      <h2>${icon} ${title} (${en.length})</h2>
+      <ol style="margin:8px 0 0; padding-left:20px;">
+        ${en.map((q,i) => `
+          <li style="margin-bottom:10px;">
+            <div>${escapeHtml(q)}</div>
+            ${(ko && ko[i]) ? `<div style="color:var(--accent); font-size:13px; margin-top:2px;">↳ ${escapeHtml(ko[i])}</div>` : ""}
+          </li>`).join("")}
+      </ol>
+    </div>` : "";
   out.innerHTML = `
     <div class="card">
       <h2 style="margin:0 0 6px;">${escapeHtml(a.title)}</h2>
@@ -1263,12 +1376,17 @@ function renderArticle(a) {
         <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener" style="color:var(--accent);">원문 열기 ↗</a>
         · ${a.paragraphs.length} paragraphs · 저장: ${new Date(a.savedAt).toLocaleString()}
       </p>
+      ${a.audioInfo ? `<div style="margin:0 0 12px; padding:8px 12px; background:var(--surface-2); border-radius:8px; font-size:13px;">🔊 <strong>AI Generated Audio</strong> · ${escapeHtml(a.audioInfo)}</div>` : ""}
       <div class="bilingual" style="margin-bottom: 10px;">
         <div class="col"><h3>🇺🇸 English</h3></div>
         <div class="col"><h3>🇰🇷 한국어</h3></div>
       </div>
       ${rows}
-    </div>`;
+    </div>
+    ${vocabHtml}
+    ${qList(a.questions, a.questionsTr, "Article Quiz", "❓")}
+    ${qList(a.discussion, a.discussionTr, "Discussion", "💬")}
+    ${qList(a.further, a.furtherTr, "Further Discussion", "🗣️")}`;
   state.passagesRead = state.passagesRead || []; tickActivity();
 }
 
