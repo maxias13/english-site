@@ -1662,8 +1662,8 @@ function renderArticle(a) {
     </div>` : "";
   out.innerHTML = `
     <div class="card">
-      <h2 style="margin:0 0 6px;">${escapeHtml(a.title)}</h2>
-      ${a.titleKo ? `<div style="font-size:16px; color:#7dd3fc; margin:0 0 8px;">${escapeHtml(a.titleKo)}</div>` : ""}
+      <h2 style="margin:0 0 6px; font-size:26px;">${escapeHtml(a.title)}</h2>
+      ${a.titleKo ? `<div style="font-size:32px; color:#7dd3fc; margin:0 0 8px; font-weight:700; line-height:1.35;">${escapeHtml(a.titleKo)}</div>` : ""}
       <p style="color:var(--text-dim); font-size:13px; margin:0 0 12px;">
         <a href="${escapeHtml(a.url)}" target="_blank" rel="noopener" style="color:var(--accent);">원문 열기 ↗</a>
         · ${a.paragraphs.length} paragraphs · 저장: ${new Date(a.savedAt).toLocaleString()}
