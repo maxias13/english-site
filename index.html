@@ -296,27 +296,29 @@
   .lg-sw.lg-hol { background: linear-gradient(135deg, #ef4444, #dc2626); }
   .lg-sw.lg-att { background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
 
-  /* ── 네온 하이라이트: 현재 읽고 있는 문단 ── */
+  /* ── 네온 하이라이트: 현재 읽고 있는 문단 (노란색) ── */
   @keyframes neon-pulse {
     0%,100% {
-      box-shadow: 0 0 0 1px rgba(6,182,212,0.8),
-                  0 0 8px 2px rgba(6,182,212,0.55),
-                  0 0 20px 6px rgba(6,182,212,0.3),
-                  0 0 40px 12px rgba(99,102,241,0.2);
+      box-shadow: 0 0 0 1px rgba(250,204,21,0.85),
+                  0 0 10px 3px rgba(250,204,21,0.6),
+                  0 0 22px 7px rgba(234,179,8,0.35),
+                  0 0 44px 14px rgba(250,204,21,0.22);
     }
     50% {
-      box-shadow: 0 0 0 1px rgba(6,182,212,1),
-                  0 0 14px 5px rgba(6,182,212,0.8),
-                  0 0 32px 12px rgba(6,182,212,0.45),
-                  0 0 60px 20px rgba(99,102,241,0.35);
+      box-shadow: 0 0 0 1px rgba(253,224,71,1),
+                  0 0 16px 6px rgba(250,204,21,0.85),
+                  0 0 36px 14px rgba(234,179,8,0.55),
+                  0 0 70px 24px rgba(250,204,21,0.4);
     }
   }
   .bilingual.reading-active .col {
-    border-color: #06b6d4;
-    background: rgba(6,182,212,0.07);
-    animation: neon-pulse 2s ease-in-out infinite;
-    transition: border-color 0.3s ease, background 0.3s ease;
+    border-color: #facc15;
+    background: rgba(250,204,21,0.08);
+    animation: neon-pulse 1.6s ease-in-out infinite;
+    transition: border-color 0.2s ease, background 0.2s ease;
   }
+  .bilingual[data-para-idx] { cursor: pointer; }
+  .bilingual[data-para-idx]:hover .col { border-color: rgba(250,204,21,0.4); }
 </style>
 </head>
 <body>
@@ -1041,12 +1043,23 @@ function parseEngooLessonJson(json) {
   const audioObj = deref(articleSec.combined_audio) || {};
   const audioUrl = audioObj.url || "";
   const paragraphs = [];
+  const paraTimings = []; // [{start, end}] in seconds — Engoo API에 있으면 사용
   for (const p of (articleSec.paragraphs || [])) {
     const pd = deref(p);
     const sents = (pd.paragraph_sentences || []).map(deref);
     const text = sents.map(s => deref(s.text)?.text || "").filter(Boolean).join(" ").trim();
     const clean = sanitizeForTranslate(text);
-    if (clean) paragraphs.push(clean);
+    if (clean) {
+      paragraphs.push(clean);
+      // Engoo가 sentence 별로 start_time/end_time을 제공하는 경우 활용
+      const startTimes = sents.map(s => s.start_time ?? s.start ?? s.audio_start ?? null).filter(v => v != null);
+      const endTimes = sents.map(s => s.end_time ?? s.end ?? s.audio_end ?? null).filter(v => v != null);
+      if (startTimes.length && endTimes.length) {
+        paraTimings.push({ start: +startTimes[0], end: +endTimes[endTimes.length - 1] });
+      } else {
+        paraTimings.push(null);
+      }
+    }
   }
   // Vocab from VocabSection
   const vocab = [];
@@ -1101,7 +1114,7 @@ function parseEngooLessonJson(json) {
   }
   const discussion = qSections[0] || [];
   const further = qSections[1] || [];
-  return { title, audioUrl, paragraphs, vocab, questions: [], discussion, further };
+  return { title, audioUrl, paragraphs, paraTimings, vocab, questions: [], discussion, further };
 }
 
 function parseEngooMarkdown(md) {
@@ -1488,6 +1501,7 @@ async function addArticleFromUrl(url) {
         if (eng.paragraphs && eng.paragraphs.length) {
           parsed = { title: eng.title || "Untitled Article", paragraphs: eng.paragraphs };
           extras.audioUrl = eng.audioUrl || "";
+          extras.paraTimings = eng.paraTimings || [];
           extras.vocab = eng.vocab || [];
           extras.questions = eng.questions || [];
           extras.discussion = eng.discussion || [];
@@ -1537,6 +1551,7 @@ async function addArticleFromUrl(url) {
     const article = { id: "a_" + Date.now().toString(36), url, title: parsed.title, titleKo,
                       paragraphs: parsed.paragraphs, translations, savedAt: new Date().toISOString(),
                       audioInfo: extras.audioInfo, audioUrl: extras.audioUrl,
+                      paraTimings: extras.paraTimings || [],
                       vocab: extras.vocab, vocabTr,
                       questions: extras.questions, questionsTr,
                       discussion: extras.discussion, discussionTr,
@@ -1604,6 +1619,7 @@ async function refreshStaleArticle(a) {
         if (eng.paragraphs && eng.paragraphs.length) {
           parsed = { title: eng.title || a.title || "Untitled Article", paragraphs: eng.paragraphs };
           extras.audioUrl = eng.audioUrl || extras.audioUrl;
+          extras.paraTimings = eng.paraTimings || [];
           extras.vocab = eng.vocab || [];
           extras.questions = eng.questions || [];
           extras.discussion = eng.discussion || [];
@@ -1633,6 +1649,7 @@ async function refreshStaleArticle(a) {
     a.translations = translations;
     a.audioUrl = extras.audioUrl;
     a.audioInfo = extras.audioInfo;
+    if (extras.paraTimings && extras.paraTimings.length) a.paraTimings = extras.paraTimings;
     if (extras.vocab.length) { a.vocab = extras.vocab; a.vocabTr = vocabTr; }
     else if (a.vocab) a.vocabTr = vocabTr;
     if (extras.questions.length) { a.questions = extras.questions; a.questionsTr = questionsTr; }
@@ -1941,21 +1958,68 @@ function setActiveParaIdx(idx) {
 function setupNativeAudioSync(a) {
   const audio = document.querySelector('#article-audio-bar audio');
   if (!audio || !a.paragraphs || !a.paragraphs.length) return;
-  const charLens = a.paragraphs.map(p => p.length);
-  const totalChars = charLens.reduce((s, c) => s + c, 0);
+
+  const N = a.paragraphs.length;
+  // 1) Engoo가 timing 메타데이터를 제공하면 그대로 사용 (가장 정확)
+  const hasTimings = Array.isArray(a.paraTimings) && a.paraTimings.length === N && a.paraTimings.every(t => t && typeof t.start === "number");
+
+  // 2) 폴백: 단어 수 가중 + offset 보정 (사용자 클릭으로 calibrate)
+  const wordCounts = a.paragraphs.map(p => p.trim().split(/\s+/).length);
+  const totalWords = wordCounts.reduce((s, c) => s + c, 0);
+  // localStorage에 사용자 보정값(seconds) 저장 — article 별로
+  const calKey = `audiocal_${a.id}`;
+  let offsetSec = parseFloat(localStorage.getItem(calKey)) || 0;
+
+  function activeIdxFromTime(t) {
+    if (hasTimings) {
+      for (let i = N - 1; i >= 0; i--) {
+        if (t >= a.paraTimings[i].start - 0.05) return i;
+      }
+      return 0;
+    }
+    // 단어 수 기반 + offset 보정
+    const dur = audio.duration; if (!dur) return 0;
+    const effective = Math.max(0, t - offsetSec);
+    const usable = Math.max(1, dur - offsetSec);
+    const ratio = effective / usable;
+    const wordPos = ratio * totalWords;
+    let cum = 0;
+    for (let i = 0; i < N; i++) {
+      cum += wordCounts[i];
+      if (wordPos <= cum) return i;
+    }
+    return N - 1;
+  }
+
   audio.addEventListener('timeupdate', () => {
     if (!audio.duration) return;
-    const ratio = audio.currentTime / audio.duration;
-    const charPos = ratio * totalChars;
-    let cum = 0, activeIdx = a.paragraphs.length - 1;
-    for (let i = 0; i < charLens.length; i++) {
-      cum += charLens[i];
-      if (charPos <= cum) { activeIdx = i; break; }
-    }
-    setActiveParaIdx(activeIdx);
+    setActiveParaIdx(activeIdxFromTime(audio.currentTime));
   });
   audio.addEventListener('ended', () => setActiveParaIdx(-1));
-  audio.addEventListener('pause', () => {});
+
+  // ── 클릭으로 calibrate: 재생 중 문단 클릭 → "지금 이게 맞는 문단" ──
+  $$('.bilingual[data-para-idx]').forEach(el => {
+    el.addEventListener('click', (e) => {
+      if (e.target.closest('button, a, input')) return;
+      if (audio.paused || !audio.duration) return;
+      const idx = +el.dataset.paraIdx;
+      if (hasTimings) {
+        // timing 데이터가 있으면 해당 위치로 시킹
+        audio.currentTime = Math.max(0, a.paraTimings[idx].start - 0.1);
+      } else {
+        // 단어 수 기반: 현재 시간을 idx의 시작점으로 만들도록 offset 조정
+        let cum = 0;
+        for (let i = 0; i < idx; i++) cum += wordCounts[i];
+        const expectedRatio = cum / totalWords;
+        const expectedTime = expectedRatio * (audio.duration - offsetSec) + offsetSec;
+        const newOffset = offsetSec + (audio.currentTime - expectedTime);
+        offsetSec = newOffset;
+        localStorage.setItem(calKey, String(offsetSec));
+        toast(`🎯 싱크 보정됨 (offset: ${offsetSec.toFixed(1)}s)`);
+      }
+      setActiveParaIdx(idx);
+    });
+  });
 }
 
 function setupAudioPlayer(a) {
