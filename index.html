@@ -296,26 +296,15 @@
   .lg-sw.lg-hol { background: linear-gradient(135deg, #ef4444, #dc2626); }
   .lg-sw.lg-att { background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
 
-  /* ── 네온 하이라이트: 현재 읽고 있는 문단 (노란색) ── */
-  @keyframes neon-pulse {
-    0%,100% {
-      box-shadow: 0 0 0 1px rgba(250,204,21,0.85),
-                  0 0 10px 3px rgba(250,204,21,0.6),
-                  0 0 22px 7px rgba(234,179,8,0.35),
-                  0 0 44px 14px rgba(250,204,21,0.22);
-    }
-    50% {
-      box-shadow: 0 0 0 1px rgba(253,224,71,1),
-                  0 0 16px 6px rgba(250,204,21,0.85),
-                  0 0 36px 14px rgba(234,179,8,0.55),
-                  0 0 70px 24px rgba(250,204,21,0.4);
-    }
-  }
+  /* ── 네온 하이라이트: 현재 읽고 있는 문단 (노란색, 정적) ── */
   .bilingual.reading-active .col {
     border-color: #facc15;
     background: rgba(250,204,21,0.08);
-    animation: neon-pulse 1.6s ease-in-out infinite;
-    transition: border-color 0.2s ease, background 0.2s ease;
+    box-shadow: 0 0 0 1px rgba(250,204,21,0.9),
+                0 0 12px 4px rgba(250,204,21,0.55),
+                0 0 28px 10px rgba(234,179,8,0.35),
+                0 0 55px 18px rgba(250,204,21,0.2);
+    transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
   }
   .bilingual[data-para-idx] { cursor: pointer; }
   .bilingual[data-para-idx]:hover .col { border-color: rgba(250,204,21,0.4); }
