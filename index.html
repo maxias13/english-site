@@ -1057,12 +1057,30 @@ function parseEngooLessonJson(json) {
         for (const w of (sd.vocab_section_words || [])) {
           const wd = deref(w);
           const word = deref(wd.word) || {};
-          if (word.word) vocab.push({
-            word: word.word,
-            pos: word.part_of_speech || "",
-            ipa: (word.pronunciations && word.pronunciations[0]) || "",
-            def: word.definition || ""
-          });
+          if (word.word) {
+            // pronunciations[0] 은 deref 필요한 참조일 수 있음
+            let ipaText = "", wordAudioUrl = "";
+            const prns = word.pronunciations || [];
+            if (prns.length) {
+              const p = deref(prns[0]);
+              if (typeof p === "string") {
+                ipaText = p;
+              } else if (p && typeof p === "object") {
+                ipaText = p.ipa || p.text || "";
+                const aud = p.audio ? deref(p.audio) : null;
+                wordAudioUrl = aud
+                  ? (aud.url || aud.mp3_url || aud.mp3 || "")
+                  : (p.audio_url || p.url || "");
+              }
+            }
+            vocab.push({
+              word: word.word,
+              pos: word.part_of_speech || "",
+              ipa: ipaText,
+              wordAudioUrl,
+              def: word.definition || ""
+            });
+          }
         }
       }
     }
@@ -1661,7 +1679,7 @@ function renderArticle(a) {
             <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
               <div style="display:flex; align-items:center; gap:8px;">
                 <strong style="font-size:16px;">${escapeHtml(v.word)}</strong>
-                <button class="speak-btn" data-word="${escapeHtml(v.word)}" title="발음 듣기"
+                <button class="speak-btn" data-word="${escapeHtml(v.word)}" data-audio="${escapeHtml(v.wordAudioUrl||'')}" title="발음 듣기"
                   style="background:none; border:none; cursor:pointer; font-size:16px; padding:2px 4px; border-radius:6px; color:var(--accent-3); transition:transform 0.15s;"
                   onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'">🔊</button>
               </div>
@@ -1738,7 +1756,7 @@ function renderArticle(a) {
   bindAnswerButtons(a);
   // 🔊 발음 버튼 바인딩
   $$(".speak-btn").forEach(btn => {
-    btn.addEventListener("click", (e) => { e.stopPropagation(); speakWord(btn.dataset.word); });
+    btn.addEventListener("click", (e) => { e.stopPropagation(); speakWord(btn.dataset.word, btn.dataset.audio); });
   });
 }
 
@@ -1889,8 +1907,16 @@ function bindAnswerButtons(a) {
   });
 }
 
-// ── 단어 발음 재생 ────────────────────────────────────────
-function speakWord(word) {
+// ── 단어 발음: Engoo 오디오 우선 → TTS 폴백 ─────────────
+function speakWord(word, audioUrl) {
+  if (audioUrl) {
+    const a = new Audio(audioUrl);
+    a.play().catch(() => _ttsSpeakWord(word));
+    return;
+  }
+  _ttsSpeakWord(word);
+}
+function _ttsSpeakWord(word) {
   if (!word || !("speechSynthesis" in window)) return;
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(word.toLowerCase().trim());
@@ -1951,13 +1977,12 @@ function setupAudioPlayer(a) {
         setActiveParaIdx(-1); st.textContent = _ttsSpeaking ? "✓ 완료" : "⏹ 정지";
         _ttsSpeaking = false; return;
       }
-      setActiveParaIdx(_ttsIdx);
       const u = new SpeechSynthesisUtterance(paras[_ttsIdx]);
       u.lang = "en-US"; u.rate = +rate.value || 1; _ttsUtter = u;
+      u.onstart = () => { setActiveParaIdx(_ttsIdx); st.textContent = `▶ ${_ttsIdx + 1} / ${paras.length}`; };
       u.onend = () => { if (!_ttsSpeaking) return; _ttsIdx++; next(); };
       u.onerror = (e) => { setActiveParaIdx(-1); st.textContent = "❌ 오류: " + (e.error || "unknown"); _ttsSpeaking = false; };
       window.speechSynthesis.speak(u);
-      st.textContent = `▶ ${_ttsIdx + 1} / ${paras.length}`;
     }
     next();
   }
