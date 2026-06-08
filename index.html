@@ -295,6 +295,28 @@
   .cal-legend .lg-sw { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
   .lg-sw.lg-hol { background: linear-gradient(135deg, #ef4444, #dc2626); }
   .lg-sw.lg-att { background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+
+  /* ── 네온 하이라이트: 현재 읽고 있는 문단 ── */
+  @keyframes neon-pulse {
+    0%,100% {
+      box-shadow: 0 0 0 1px rgba(6,182,212,0.8),
+                  0 0 8px 2px rgba(6,182,212,0.55),
+                  0 0 20px 6px rgba(6,182,212,0.3),
+                  0 0 40px 12px rgba(99,102,241,0.2);
+    }
+    50% {
+      box-shadow: 0 0 0 1px rgba(6,182,212,1),
+                  0 0 14px 5px rgba(6,182,212,0.8),
+                  0 0 32px 12px rgba(6,182,212,0.45),
+                  0 0 60px 20px rgba(99,102,241,0.35);
+    }
+  }
+  .bilingual.reading-active .col {
+    border-color: #06b6d4;
+    background: rgba(6,182,212,0.07);
+    animation: neon-pulse 2s ease-in-out infinite;
+    transition: border-color 0.3s ease, background 0.3s ease;
+  }
 </style>
 </head>
 <body>
@@ -857,7 +879,11 @@ function loadPassage(id) {
     const span = document.createElement("span");
     span.className = "word";
     span.textContent = tok;
-    span.addEventListener("click", () => addVocab(tok.replace(/[^\w'-]/g, ""), p.title));
+    span.addEventListener("click", () => {
+      const w = tok.replace(/[^\w'-]/g, "");
+      speakWord(w);
+      addVocab(w, p.title);
+    });
     body.appendChild(span);
   });
   $("#passage-translation").textContent = p.translation;
@@ -894,14 +920,19 @@ function renderVocab() {
     const li = document.createElement("li");
     li.innerHTML = `
       <div>
-        <strong>${escapeHtml(v.word)}</strong>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <strong>${escapeHtml(v.word)}</strong>
+          <button class="speak-vocab-btn" data-word="${escapeHtml(v.word)}" title="발음 듣기"
+            style="background:none; border:none; cursor:pointer; font-size:15px; padding:1px 3px; border-radius:5px; color:var(--accent-3);">🔊</button>
+        </div>
         <div style="color:var(--text-dim); font-size:12px;">${escapeHtml(v.source || "")}</div>
       </div>
       <div style="display:flex; gap:8px; align-items:center;">
         <span class="badge">${new Date(v.addedAt).toLocaleDateString("ko-KR")}</span>
         <button class="btn btn-ghost" style="padding:5px 10px;">삭제</button>
       </div>`;
-    li.querySelector("button").addEventListener("click", () => {
+    li.querySelector(".speak-vocab-btn").addEventListener("click", (e) => { e.stopPropagation(); speakWord(v.word); });
+    li.querySelector(".btn").addEventListener("click", () => {
       state.vocab = state.vocab.filter(x => x.word !== v.word); saveState(); renderVocab();
     });
     ul.appendChild(li);
@@ -1616,7 +1647,7 @@ function openArticle(id) {
 function renderArticle(a) {
   const out = $("#article-output");
   const rows = a.paragraphs.map((p, i) => `
-    <div class="bilingual" style="margin-bottom: 14px;">
+    <div class="bilingual" data-para-idx="${i}" style="margin-bottom: 14px;">
       <div class="col"><p>${escapeHtml(p)}</p></div>
       <div class="col"><p style="color:#7dd3fc;">${escapeHtml(a.translations[i] || "(번역 없음)")}</p></div>
     </div>`).join("");
@@ -1627,11 +1658,16 @@ function renderArticle(a) {
       <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap:10px; margin-top:10px;">
         ${vocab.map((v,i) => `
           <div style="padding:12px; border:1px solid var(--border); border-radius:10px; background:var(--surface-2);">
-            <div style="display:flex; justify-content:space-between; align-items:baseline; gap:8px;">
-              <strong style="font-size:16px;">${escapeHtml(v.word)}</strong>
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+              <div style="display:flex; align-items:center; gap:8px;">
+                <strong style="font-size:16px;">${escapeHtml(v.word)}</strong>
+                <button class="speak-btn" data-word="${escapeHtml(v.word)}" title="발음 듣기"
+                  style="background:none; border:none; cursor:pointer; font-size:16px; padding:2px 4px; border-radius:6px; color:var(--accent-3); transition:transform 0.15s;"
+                  onmouseover="this.style.transform='scale(1.25)'" onmouseout="this.style.transform='scale(1)'">🔊</button>
+              </div>
               <span style="font-size:11px; color:var(--text-dim);">${escapeHtml(v.pos)}</span>
             </div>
-            <div style="font-size:12px; color:var(--text-dim); margin:2px 0;">${escapeHtml(v.ipa||"")}</div>
+            <div style="font-size:12px; color:var(--accent-3); margin:3px 0; font-style:italic;">${escapeHtml(v.ipa||"")}</div>
             <div style="font-size:13px; margin-top:4px;">${escapeHtml(v.def)}</div>
             ${vocabTr[i] ? `<div style="font-size:13px; color:#7dd3fc; margin-top:4px;">↳ ${escapeHtml(vocabTr[i])}</div>` : ""}
           </div>`).join("")}
@@ -1698,7 +1734,12 @@ function renderArticle(a) {
     ${qList(a.further, a.furtherTr, "Further Discussion", "🗣️", "further")}`;
   state.passagesRead = state.passagesRead || []; tickActivity();
   if (!a.audioUrl) setupAudioPlayer(a);
+  else setupNativeAudioSync(a);
   bindAnswerButtons(a);
+  // 🔊 발음 버튼 바인딩
+  $$(".speak-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => { e.stopPropagation(); speakWord(btn.dataset.word); });
+  });
 }
 
 function renderAnswers(arr) {
@@ -1793,27 +1834,28 @@ function _templateAnswers(question) {
 }
 
 async function generateAnswerSentences(question, articleContext) {
-  const ctx = (articleContext || "").slice(0, 1200);
-  const prompt = `You are helping a Korean learner study English. Given the article context and the discussion question, write EXACTLY 3 short example answer sentences in natural English (each 1-2 sentences, 15-30 words). Output ONLY the 3 sentences, one per line, no numbering, no quotes, no extra text.
-
-ARTICLE CONTEXT:
-${ctx}
-
-QUESTION:
-${question}
-
-3 EXAMPLE ANSWERS:`;
+  // 템플릿을 즉시 준비 — 항상 실패 없이 반환
+  const tpl = _templateAnswers(question);
+  // LLM을 1회(5초 타임아웃)만 시도, 실패 시 즉시 템플릿으로 폴백
   try {
-    const text = await _llmEnqueue(() => _llmCall(prompt));
-    const lines = text.split(/\r?\n/).map(s => s.replace(/^\s*[\d\.\-\*•)]+\s*/, "").replace(/^["']|["']$/g, "").trim()).filter(Boolean).slice(0, 3);
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 5000);
+    const prompt = `Write EXACTLY 3 short English example answers (15-25 words each) for an English learner. Question: "${question}"\nOutput only 3 lines, one answer per line, no numbering, no quotes.`;
+    const url = "https://text.pollinations.ai/" + encodeURIComponent(prompt) + "?model=mistral&referrer=englishlab";
+    const res = await fetch(url, { signal: ctrl.signal });
+    clearTimeout(tid);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const text = (await res.text()).trim();
+    const lines = text.split(/\r?\n/)
+      .map(s => s.replace(/^\s*[\d\.\-\*•)]+\s*/, "").replace(/^["']|["']$/g, "").trim())
+      .filter(s => s.length > 10).slice(0, 3);
     if (lines.length >= 2) {
-      while (lines.length < 3) lines.push("(추가 답변 생성 실패)");
-      return {lines, fallback: false};
+      while (lines.length < 3) lines.push(tpl[lines.length] || tpl[0]);
+      return { lines, fallback: false };
     }
-    throw new Error("응답 파싱 실패");
+    throw new Error("parse fail");
   } catch (e) {
-    console.warn("LLM 실패, 템플릿 폴백 사용:", e.message);
-    return {lines: _templateAnswers(question), fallback: true};
+    return { lines: tpl, fallback: true };
   }
 }
 
@@ -1847,7 +1889,49 @@ function bindAnswerButtons(a) {
   });
 }
 
+// ── 단어 발음 재생 ────────────────────────────────────────
+function speakWord(word) {
+  if (!word || !("speechSynthesis" in window)) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(word.toLowerCase().trim());
+  u.lang = "en-US"; u.rate = 0.85;
+  window.speechSynthesis.speak(u);
+}
+
 let _ttsUtter = null;
+
+// ── 네온 하이라이트 헬퍼 ──────────────────────────────────
+function setActiveParaIdx(idx) {
+  $$('.bilingual[data-para-idx]').forEach(el => {
+    el.classList.toggle('reading-active', +el.dataset.paraIdx === idx);
+  });
+  if (idx >= 0) {
+    const el = $(`.bilingual[data-para-idx="${idx}"]`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+
+// 네이티브 오디오(Engoo audioUrl) 재생 시 문단 동기화
+function setupNativeAudioSync(a) {
+  const audio = document.querySelector('#article-audio-bar audio');
+  if (!audio || !a.paragraphs || !a.paragraphs.length) return;
+  const charLens = a.paragraphs.map(p => p.length);
+  const totalChars = charLens.reduce((s, c) => s + c, 0);
+  audio.addEventListener('timeupdate', () => {
+    if (!audio.duration) return;
+    const ratio = audio.currentTime / audio.duration;
+    const charPos = ratio * totalChars;
+    let cum = 0, activeIdx = a.paragraphs.length - 1;
+    for (let i = 0; i < charLens.length; i++) {
+      cum += charLens[i];
+      if (charPos <= cum) { activeIdx = i; break; }
+    }
+    setActiveParaIdx(activeIdx);
+  });
+  audio.addEventListener('ended', () => setActiveParaIdx(-1));
+  audio.addEventListener('pause', () => {});
+}
+
 function setupAudioPlayer(a) {
   if (!("speechSynthesis" in window)) {
     const bar = $("#article-audio-bar"); if (bar) bar.querySelector("#audio-status").textContent = "이 브라우저는 음성합성을 지원하지 않습니다";
@@ -1856,22 +1940,35 @@ function setupAudioPlayer(a) {
   const playBtn = $("#audio-play"), pauseBtn = $("#audio-pause"), stopBtn = $("#audio-stop");
   const rate = $("#audio-rate"), rateVal = $("#audio-rate-val"), st = $("#audio-status");
   if (!playBtn) return;
-  const text = (a.paragraphs || []).join(" ");
-  rate.addEventListener("input", () => { rateVal.textContent = (+rate.value).toFixed(1) + "x"; if (_ttsUtter) _ttsUtter.rate = +rate.value; });
+  const paras = a.paragraphs || [];
+  let _ttsIdx = -1, _ttsSpeaking = false;
+  rate.addEventListener("input", () => { rateVal.textContent = (+rate.value).toFixed(1) + "x"; });
+  function speakFrom(startIdx) {
+    window.speechSynthesis.cancel();
+    _ttsIdx = startIdx; _ttsSpeaking = true;
+    function next() {
+      if (!_ttsSpeaking || _ttsIdx >= paras.length) {
+        setActiveParaIdx(-1); st.textContent = _ttsSpeaking ? "✓ 완료" : "⏹ 정지";
+        _ttsSpeaking = false; return;
+      }
+      setActiveParaIdx(_ttsIdx);
+      const u = new SpeechSynthesisUtterance(paras[_ttsIdx]);
+      u.lang = "en-US"; u.rate = +rate.value || 1; _ttsUtter = u;
+      u.onend = () => { if (!_ttsSpeaking) return; _ttsIdx++; next(); };
+      u.onerror = (e) => { setActiveParaIdx(-1); st.textContent = "❌ 오류: " + (e.error || "unknown"); _ttsSpeaking = false; };
+      window.speechSynthesis.speak(u);
+      st.textContent = `▶ ${_ttsIdx + 1} / ${paras.length}`;
+    }
+    next();
+  }
   playBtn.addEventListener("click", () => {
     try {
-      if (window.speechSynthesis.paused && _ttsUtter) { window.speechSynthesis.resume(); st.textContent = "▶ 재생 중"; return; }
-      window.speechSynthesis.cancel();
-      _ttsUtter = new SpeechSynthesisUtterance(text);
-      _ttsUtter.lang = "en-US"; _ttsUtter.rate = +rate.value || 1;
-      _ttsUtter.onend = () => { st.textContent = "✓ 완료"; };
-      _ttsUtter.onerror = (e) => { st.textContent = "❌ 오류: " + (e.error || "unknown"); };
-      window.speechSynthesis.speak(_ttsUtter);
-      st.textContent = "▶ 재생 중";
+      if (window.speechSynthesis.paused && _ttsUtter) { window.speechSynthesis.resume(); st.textContent = `▶ ${_ttsIdx + 1} / ${paras.length}`; return; }
+      speakFrom(0);
     } catch (e) { st.textContent = "❌ " + e.message; }
   });
   pauseBtn.addEventListener("click", () => { if (window.speechSynthesis.speaking) { window.speechSynthesis.pause(); st.textContent = "⏸ 일시정지"; } });
-  stopBtn.addEventListener("click",  () => { window.speechSynthesis.cancel(); _ttsUtter = null; st.textContent = "⏹ 정지"; });
+  stopBtn.addEventListener("click", () => { _ttsSpeaking = false; window.speechSynthesis.cancel(); _ttsUtter = null; setActiveParaIdx(-1); st.textContent = "⏹ 정지"; });
 }
 
 $("#dash-article-url")?.remove?.();
