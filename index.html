@@ -1960,13 +1960,24 @@ function setupNativeAudioSync(a) {
   if (!audio || !a.paragraphs || !a.paragraphs.length) return;
 
   const N = a.paragraphs.length;
-  // 1) Engoo가 timing 메타데이터를 제공하면 그대로 사용 (가장 정확)
+  // 1) Engoo가 sentence-level timing을 제공하면 가장 정확 (그대로 사용)
   const hasTimings = Array.isArray(a.paraTimings) && a.paraTimings.length === N && a.paraTimings.every(t => t && typeof t.start === "number");
 
-  // 2) 폴백: 단어 수 가중 + offset 보정 (사용자 클릭으로 calibrate)
-  const wordCounts = a.paragraphs.map(p => p.trim().split(/\s+/).length);
-  const totalWords = wordCounts.reduce((s, c) => s + c, 0);
-  // localStorage에 사용자 보정값(seconds) 저장 — article 별로
+  // 2) 폴백: 단어 수 기반
+  //    ⚠ 핵심: Engoo 오디오는 [제목 → pause → 본문 문단들] 순으로 재생됨
+  //    제목 단어 수도 포함시켜야 본문 문단 위치가 정확하게 계산됨
+  const countWords = (s) => (s || "").trim().split(/\s+/).filter(Boolean).length;
+  const titleWords = countWords(a.title);
+  const paraCounts = a.paragraphs.map(countWords);
+  const totalContentWords = paraCounts.reduce((s, c) => s + c, 0);
+  // 제목 읽기에는 본문 단어보다 천천히 (강조해서) 읽기 때문에 가중치 1.6
+  // + 제목 직후 0.5초 정도 pause가 있음 → totalWords에 가산 단어로 표현
+  const TITLE_WEIGHT = 1.6;
+  const PAUSE_EQUIV_WORDS = 1.5; // 제목 직후 짧은 쉼
+  const introWords = titleWords * TITLE_WEIGHT + PAUSE_EQUIV_WORDS;
+  const totalWords = introWords + totalContentWords;
+
+  // 사용자 보정값(seconds) — article 별로 localStorage 저장
   const calKey = `audiocal_${a.id}`;
   let offsetSec = parseFloat(localStorage.getItem(calKey)) || 0;
 
@@ -1975,18 +1986,17 @@ function setupNativeAudioSync(a) {
       for (let i = N - 1; i >= 0; i--) {
         if (t >= a.paraTimings[i].start - 0.05) return i;
       }
-      return 0;
+      return -1; // 아직 첫 문단 시작 전 → 제목 읽는 중
     }
-    // 단어 수 기반 + offset 보정
-    const dur = audio.duration; if (!dur) return 0;
-    const effective = Math.max(0, t - offsetSec);
-    const usable = Math.max(1, dur - offsetSec);
-    const ratio = effective / usable;
-    const wordPos = ratio * totalWords;
-    let cum = 0;
+    const dur = audio.duration; if (!dur) return -1;
+    // wordsPerSec = totalWords / duration
+    // 현재까지 읽은 단어 = (t - offsetSec) * wordsPerSec
+    const wordsRead = Math.max(0, (t - offsetSec) * (totalWords / dur));
+    if (wordsRead < introWords) return -1; // 아직 제목 읽는 중 → 하이라이트 X
+    let cum = introWords;
     for (let i = 0; i < N; i++) {
-      cum += wordCounts[i];
-      if (wordPos <= cum) return i;
+      cum += paraCounts[i];
+      if (wordsRead <= cum) return i;
     }
     return N - 1;
   }
@@ -1997,23 +2007,20 @@ function setupNativeAudioSync(a) {
   });
   audio.addEventListener('ended', () => setActiveParaIdx(-1));
 
-  // ── 클릭으로 calibrate: 재생 중 문단 클릭 → "지금 이게 맞는 문단" ──
+  // ── 클릭 보정: 재생 중 "지금 들리는 문단"을 클릭 → 즉시 싱크 보정 ──
   $$('.bilingual[data-para-idx]').forEach(el => {
     el.addEventListener('click', (e) => {
       if (e.target.closest('button, a, input')) return;
       if (audio.paused || !audio.duration) return;
       const idx = +el.dataset.paraIdx;
       if (hasTimings) {
-        // timing 데이터가 있으면 해당 위치로 시킹
         audio.currentTime = Math.max(0, a.paraTimings[idx].start - 0.1);
       } else {
-        // 단어 수 기반: 현재 시간을 idx의 시작점으로 만들도록 offset 조정
-        let cum = 0;
-        for (let i = 0; i < idx; i++) cum += wordCounts[i];
-        const expectedRatio = cum / totalWords;
-        const expectedTime = expectedRatio * (audio.duration - offsetSec) + offsetSec;
-        const newOffset = offsetSec + (audio.currentTime - expectedTime);
-        offsetSec = newOffset;
+        // 이 문단의 예상 시작 시각을 계산해서 offset 보정
+        let cumWords = introWords;
+        for (let i = 0; i < idx; i++) cumWords += paraCounts[i];
+        const expectedTime = (cumWords / totalWords) * audio.duration + offsetSec;
+        offsetSec += (audio.currentTime - expectedTime);
         localStorage.setItem(calKey, String(offsetSec));
         toast(`🎯 싱크 보정됨 (offset: ${offsetSec.toFixed(1)}s)`);
       }
